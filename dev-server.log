@@ -1,0 +1,15 @@
+
+> madhu-garments-storefront@1.0.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+   ▲ Next.js 15.5.15
+   - Local:        http://127.0.0.1:3000
+   - Network:      http://127.0.0.1:3000
+
+ ✓ Starting...
+ ✓ Ready in 3.8s
+ ○ Compiling /my-account ...
+ ✓ Compiled /my-account in 2.3s (653 modules)
+ GET /my-account 200 in 4093ms
+ GET /about-us 200 in 4454ms
+ GET / 200 in 4589ms
