@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { sendEmailOtp, verifyEmailOtp } from "@/lib/auth-service";
 
@@ -34,6 +35,7 @@ function isValidEmail(email: string) {
 }
 
 export function EmailOtpAuthForm({ mode }: EmailOtpAuthFormProps) {
+  const router = useRouter();
   const isSignup = mode === "signup";
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -182,6 +184,7 @@ export function EmailOtpAuthForm({ mode }: EmailOtpAuthFormProps) {
           ? "Account created successfully with your email and mobile number. You are now logged in."
           : "OTP verified successfully. You are now logged in with your email and mobile number.",
       );
+      router.replace("/");
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Something went wrong while verifying OTP. Please try again.");
     } finally {

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Minus, Plus, Trash2 } from "lucide-react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
@@ -24,8 +25,9 @@ type ShippingDetails = {
 };
 
 export function CheckoutClient() {
+  const router = useRouter();
   const { clearCart, items, removeItem, subtotal, updateQuantity } = useCart();
-  const { configured, user } = useAuth();
+  const { configured, loading: authLoading, user } = useAuth();
   const [placed, setPlaced] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
@@ -43,6 +45,11 @@ export function CheckoutClient() {
   });
 
   const total = subtotal + shipping;
+
+  useEffect(() => {
+    if (!configured || authLoading || user) return;
+    router.replace("/login");
+  }, [authLoading, configured, router, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -75,12 +82,17 @@ export function CheckoutClient() {
       return;
     }
 
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
     setPlacing(true);
     try {
       const customerName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
       const { error: insertError } = await getSupabase().from("orders").insert({
         store_id: PRODUCT_STORE_ID,
-        user_id: user?.id || null,
+        user_id: user.id,
         items,
         total,
         status: "placed",
@@ -122,6 +134,16 @@ export function CheckoutClient() {
         <h1>Your cart is empty</h1>
         <p>Add products to your cart before checking out.</p>
         <Link href="/shop">Shop Products</Link>
+      </section>
+    );
+  }
+
+  if (configured && (authLoading || !user)) {
+    return (
+      <section className="checkout-empty container">
+        <h1>Login required</h1>
+        <p>Please log in before placing your order.</p>
+        <Link href="/login">Login</Link>
       </section>
     );
   }
