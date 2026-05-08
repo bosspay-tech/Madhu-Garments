@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "seed:products": "node scripts/seed-products-csv.mjs",
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "lucide-react": "^0.468.0",
     "next": "^15.0.0",
     "react": "^19.0.0",

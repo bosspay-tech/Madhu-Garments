@@ -7,9 +7,11 @@ type ProductPageProps = {
   params: Promise<{ id: string }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: ProductPageProps) {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getProductById(id);
 
   return {
     title: product ? `${product.name} | MADHU GARMENTS` : "Product | MADHU GARMENTS",
@@ -18,13 +20,13 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getProductById(id);
 
   if (!product) {
     notFound();
   }
 
-  const related = getRelatedProducts(product, 4);
+  const related = await getRelatedProducts(product, 4);
   const categories = Array.from(
     new Set(
       product.categories

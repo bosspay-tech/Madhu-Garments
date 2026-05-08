@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { Minus, Plus, Search, ShoppingCart, UserRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
+import { useAuth } from "@/components/use-auth";
+import { signOut } from "@/lib/auth-service";
 
 const links = [
   { href: "/", label: "Home" },
@@ -23,10 +25,15 @@ const marqueeItems = [
 export function SiteHeader() {
   const pathname = usePathname();
   const { cartOpen, closeCart, itemCount, items, openCart, subtotal, updateQuantity } = useCart();
+  const { user } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
   const activePath = useMemo(() => (pathname === "/" ? "/" : `/${pathname.split("/")[1]}`), [pathname]);
+  const handleSignOut = async () => {
+    await signOut();
+    setAccountOpen(false);
+  };
 
   return (
     <>
@@ -70,8 +77,28 @@ export function SiteHeader() {
               </button>
               {accountOpen && (
                 <div className="account-dropdown">
-                  <Link href="/my-account">Dashboard</Link>
-                  <a href="#">Logout</a>
+                  {user ? (
+                    <>
+                      <Link href="/my-account" onClick={() => setAccountOpen(false)}>
+                        Dashboard
+                      </Link>
+                      <Link href="/orders" onClick={() => setAccountOpen(false)}>
+                        Orders
+                      </Link>
+                      <button onClick={handleSignOut} type="button">
+                        Logout
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link href="/login" onClick={() => setAccountOpen(false)}>
+                        Login
+                      </Link>
+                      <Link href="/signup" onClick={() => setAccountOpen(false)}>
+                        Sign up
+                      </Link>
+                    </>
+                  )}
                 </div>
               )}
             </div>

@@ -9,6 +9,7 @@ const address = [
   "District: Tiruppur",
   "State : Thamilnadu",
   "PIN Code: 641602",
+  "Mobile : +91 7845414129",
 ];
 
 export function SiteFooter() {
@@ -45,7 +46,7 @@ export function SiteFooter() {
         <div className="newsletter">
           <h3>Newsletter</h3>
           <p>Subscribe to get notified about product launches, special offers and news.</p>
-          <input placeholder="madhu.garments@example.com" />
+          <input placeholder="sales@madhugarments.com" />
           <button>Subscribe</button>
         </div>
       </div>

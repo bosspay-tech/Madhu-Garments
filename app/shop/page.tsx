@@ -13,6 +13,8 @@ import { Search } from "lucide-react";
 
 const maxSelectablePrice = 20000;
 
+export const dynamic = "force-dynamic";
+
 type ShopPageProps = {
   searchParams?: Promise<{
     category?: string | string[];
@@ -26,12 +28,12 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const selectedCategory = getSingleParam(params?.category);
   const selectedColor = getSingleParam(params?.color);
   const selectedMaxPrice = getPriceParam(params?.max_price);
-  const allProducts = getShopProducts();
+  const allProducts = await getShopProducts();
   const categoryProducts = selectedCategory ? filterProductsByCategory(allProducts, selectedCategory) : allProducts;
   const colorProducts = selectedColor ? filterProductsByColor(categoryProducts, selectedColor) : categoryProducts;
   const filteredProducts = filterProductsByMaxPrice(colorProducts, selectedMaxPrice);
   const products = filteredProducts.slice(0, 12);
-  const categories = getCategoryCounts();
+  const categories = getCategoryCounts(allProducts);
   const colors = getColorCounts(categoryProducts);
   const filterMaxPrice = selectedMaxPrice ?? maxSelectablePrice;
   const resultLabel =

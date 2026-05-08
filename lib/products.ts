@@ -1,5 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
+import { getSupabase } from "@/lib/supabase";
+import { CSV_PRODUCT_TYPE, PRODUCT_STORE_ID } from "@/lib/store";
+
+export { CSV_PRODUCT_TYPE, PRODUCT_STORE_ID };
 
 export type Product = {
   id: string;
@@ -31,28 +33,34 @@ export type FilterCount = {
   count: number;
 };
 
-type Row = Record<string, string>;
+type ProductRow = Record<string, unknown>;
 
 let cache: Product[] | null = null;
 
-export function getProducts(): Product[] {
+export async function getProducts(): Promise<Product[]> {
   if (cache) {
     return cache;
   }
 
-  const file = path.join(process.cwd(), "products.csv");
-  const csv = fs.readFileSync(file, "utf8");
-  const rows = parseCsv(csv);
-  const variationPrices = getVariationPrices(rows);
+  const { data, error } = await getSupabase()
+    .from("products")
+    .select("*")
+    .eq("store_id", PRODUCT_STORE_ID)
+    .eq("type", CSV_PRODUCT_TYPE)
+    .eq("is_active", true)
+    .order("slug", { ascending: true });
 
-  cache = rows
-    .map((row, index) => toProduct(row, index, variationPrices.get(row.ID)))
-    .filter((product): product is Product => Boolean(product?.name && product.image && getProductUnitPrice(product) > 0));
+  if (error) {
+    console.error("Failed to load DB products:", error.message);
+    cache = [];
+    return cache;
+  }
 
+  cache = (data ?? []).map(toProduct).filter((product): product is Product => Boolean(product?.name && product.image));
   return cache;
 }
 
-export function getShopProducts(): Product[] {
+export async function getShopProducts(): Promise<Product[]> {
   const preferredNames = [
     "Abstract Blue Print Oversized T-Shirt",
     "ADRO Men's 100% Cotton Regular Fit T-Shirt",
@@ -67,7 +75,7 @@ export function getShopProducts(): Product[] {
     "Avocet Modal Shirt",
   ];
 
-  const products = getProducts();
+  const products = await getProducts();
   const chosen = preferredNames
     .map((name) => products.find((product) => product.name.toLowerCase().includes(name.toLowerCase())))
     .filter((product): product is Product => Boolean(product));
@@ -77,11 +85,11 @@ export function getShopProducts(): Product[] {
   return [...chosen, ...rest];
 }
 
-export function getCategoryCounts(): CategoryCount[] {
+export function getCategoryCounts(products: Product[]): CategoryCount[] {
   const counts = new Map<string, number>();
   const levels = new Map<string, number>();
 
-  for (const product of getProducts()) {
+  for (const product of products) {
     const parts = getProductCategoryParts(product);
 
     for (const part of parts) {
@@ -132,7 +140,7 @@ export function filterProductsByMaxPrice(products: Product[], maxPrice: number |
   return products.filter((product) => getProductUnitPrice(product) <= maxPrice);
 }
 
-export function getColorCounts(products = getProducts()): FilterCount[] {
+export function getColorCounts(products: Product[]): FilterCount[] {
   const counts = new Map<string, number>();
 
   for (const product of products) {
@@ -151,17 +159,19 @@ export function getColorCounts(products = getProducts()): FilterCount[] {
   );
 }
 
-export function getProductById(id: string): Product | undefined {
-  return getProducts().find((product) => product.id === id);
+export async function getProductById(id: string): Promise<Product | undefined> {
+  const products = await getProducts();
+  return products.find((product) => product.id === id);
 }
 
-export function getRelatedProducts(product: Product, limit = 4): Product[] {
+export async function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
   const category = product.categories
     .split(",")
     .map((part) => part.trim().split(">").pop()?.trim())
     .find(Boolean);
+  const products = await getProducts();
 
-  return getProducts()
+  return products
     .filter((item) => item.id !== product.id)
     .filter((item) => (category ? item.categories.includes(category) : true))
     .slice(0, limit);
@@ -171,28 +181,29 @@ export function getProductUnitPrice(product: Product): number {
   return product.salePrice ?? product.regularPrice ?? 0;
 }
 
-function toProduct(row: Row, index: number, fallbackPrice?: ProductPrice): Product | null {
-  const image = firstImage(row.Images);
-  const regularPrice = parsePrice(row["Regular price"]) ?? fallbackPrice?.regularPrice ?? null;
-  const salePrice = parsePrice(row["Sale price"]) ?? fallbackPrice?.salePrice ?? null;
+function toProduct(row: ProductRow): Product | null {
+  const basePrice = toNumber(row.base_price);
+  const mrp = toNumber(row.mrp);
+  const salePrice = mrp && basePrice && basePrice < mrp ? basePrice : null;
+  const regularPrice = mrp ?? basePrice;
   const discount =
     regularPrice && salePrice && salePrice < regularPrice
       ? Math.round(((regularPrice - salePrice) / regularPrice) * 100)
       : null;
 
   return {
-    id: row.ID || `${index}`,
-    name: row.Name?.trim() ?? "",
-    sku: row.SKU?.trim() ?? "",
-    color: getProductColor(row),
-    image,
-    categories: row.Categories ?? "",
-    shortDescription: cleanHtml(row["Short description"] ?? ""),
-    description: cleanHtml(row.Description ?? ""),
-    descriptionHtml: row.Description ?? "",
-    stock: parseStock(row.Stock),
-    tags: row.Tags ?? "",
-    brand: row.Brands ?? "",
+    id: toString(row.id),
+    name: toString(row.title),
+    sku: toString(row.sku),
+    color: toString(row.color),
+    image: toString(row.image_url),
+    categories: categoriesToString(row.categories),
+    shortDescription: cleanHtml(toString(row.short_description)),
+    description: cleanHtml(toString(row.description)),
+    descriptionHtml: toString(row.description_html) || toString(row.description),
+    stock: toNumber(row.stock),
+    tags: toString(row.tags),
+    brand: toString(row.brand),
     regularPrice,
     salePrice,
     priceLabel: formatPrice(regularPrice, salePrice),
@@ -200,66 +211,30 @@ function toProduct(row: Row, index: number, fallbackPrice?: ProductPrice): Produ
   };
 }
 
-type ProductPrice = {
-  regularPrice: number | null;
-  salePrice: number | null;
-};
-
-function getVariationPrices(rows: Row[]) {
-  const prices = new Map<string, { regularPrices: number[]; salePrices: number[]; currentPrices: number[] }>();
-
-  for (const row of rows) {
-    if (row.Type !== "variation" || !row.Parent?.startsWith("id:")) {
-      continue;
-    }
-
-    const parentId = row.Parent.replace("id:", "").trim();
-    const regularPrice = parsePrice(row["Regular price"]);
-    const salePrice = parsePrice(row["Sale price"]);
-    const currentPrice = salePrice ?? regularPrice;
-
-    if (!currentPrice || currentPrice <= 0) {
-      continue;
-    }
-
-    const bucket = prices.get(parentId) ?? { regularPrices: [], salePrices: [], currentPrices: [] };
-    bucket.currentPrices.push(currentPrice);
-
-    if (regularPrice && regularPrice > 0) {
-      bucket.regularPrices.push(regularPrice);
-    }
-
-    if (salePrice && salePrice > 0) {
-      bucket.salePrices.push(salePrice);
-    }
-
-    prices.set(parentId, bucket);
-  }
-
-  return new Map(
-    Array.from(prices, ([parentId, price]) => {
-      const salePrice = price.salePrices.length ? Math.min(...price.salePrices) : null;
-      const regularPrice = price.regularPrices.length ? Math.min(...price.regularPrices) : Math.min(...price.currentPrices);
-
-      return [parentId, { regularPrice, salePrice }] as const;
-    }),
-  );
+function toString(value: unknown) {
+  return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
 }
 
-function getProductColor(row: Row) {
-  const attributePairs = [
-    ["Attribute 1 name", "Attribute 1 value(s)"],
-    ["Attribute 2 name", "Attribute 2 value(s)"],
-    ["Attribute 3 name", "Attribute 3 value(s)"],
-  ];
-
-  for (const [nameKey, valueKey] of attributePairs) {
-    if (row[nameKey]?.trim().toLowerCase() === "color") {
-      return row[valueKey]?.replace(/\\/g, "").trim() ?? "";
-    }
+function toNumber(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
   }
 
-  return "";
+  const clean = toString(value).replace(/,/g, "");
+  if (!clean) {
+    return null;
+  }
+
+  const number = Number(clean);
+  return Number.isFinite(number) ? number : null;
+}
+
+function categoriesToString(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map(toString).filter(Boolean).join(", ");
+  }
+
+  return toString(value);
 }
 
 function cleanHtml(value = "") {
@@ -269,33 +244,6 @@ function cleanHtml(value = "") {
     .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function firstImage(value = "") {
-  return value
-    .split(",")
-    .map((image) => image.trim())
-    .find((image) => image.startsWith("http")) ?? "";
-}
-
-function parsePrice(value = "") {
-  const clean = value.replace(/,/g, "").trim();
-  if (!clean) {
-    return null;
-  }
-
-  const number = Number(clean);
-  return Number.isFinite(number) ? number : null;
-}
-
-function parseStock(value = "") {
-  const clean = value.replace(/,/g, "").trim();
-  if (!clean) {
-    return null;
-  }
-
-  const number = Number(clean);
-  return Number.isFinite(number) ? number : null;
 }
 
 function formatPrice(regular: number | null, sale: number | null) {
@@ -349,49 +297,4 @@ function getCategoryLevel(categories: string, name: string) {
 
 function normalizeCategory(category: string) {
   return category.trim().toLowerCase();
-}
-
-function parseCsv(csv: string): Row[] {
-  const rows: string[][] = [];
-  let current = "";
-  let row: string[] = [];
-  let quoted = false;
-
-  for (let index = 0; index < csv.length; index += 1) {
-    const char = csv[index];
-    const next = csv[index + 1];
-
-    if (char === '"' && quoted && next === '"') {
-      current += '"';
-      index += 1;
-    } else if (char === '"') {
-      quoted = !quoted;
-    } else if (char === "," && !quoted) {
-      row.push(current);
-      current = "";
-    } else if ((char === "\n" || char === "\r") && !quoted) {
-      if (char === "\r" && next === "\n") {
-        index += 1;
-      }
-      row.push(current);
-      rows.push(row);
-      row = [];
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-
-  if (current || row.length) {
-    row.push(current);
-    rows.push(row);
-  }
-
-  const [headers = [], ...dataRows] = rows;
-  return dataRows.map((dataRow) =>
-    headers.reduce<Row>((record, header, index) => {
-      record[header.replace(/^\uFEFF/, "")] = dataRow[index] ?? "";
-      return record;
-    }, {}),
-  );
 }

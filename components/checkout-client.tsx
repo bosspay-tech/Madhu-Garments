@@ -1,22 +1,108 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Minus, Plus, Trash2 } from "lucide-react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
+import { useAuth } from "@/components/use-auth";
+import { getSupabase } from "@/lib/supabase";
+import { PRODUCT_STORE_ID } from "@/lib/store";
 
 const shipping = 0;
 
+type ShippingDetails = {
+  firstName: string;
+  lastName: string;
+  company: string;
+  street: string;
+  city: string;
+  state: string;
+  pincode: string;
+  phone: string;
+  email: string;
+  notes: string;
+};
+
 export function CheckoutClient() {
   const { clearCart, items, removeItem, subtotal, updateQuantity } = useCart();
+  const { configured, user } = useAuth();
   const [placed, setPlaced] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [error, setError] = useState("");
+  const [shippingDetails, setShippingDetails] = useState<ShippingDetails>({
+    firstName: "",
+    lastName: "",
+    company: "",
+    street: "",
+    city: "",
+    state: "Tamil Nadu",
+    pincode: "",
+    phone: "",
+    email: "",
+    notes: "",
+  });
 
   const total = subtotal + shipping;
 
-  const placeOrder = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!user) return;
+
+    const fullName =
+      typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim().split(/\s+/) : [];
+    const firstName = fullName[0] ?? "";
+    const lastName = fullName.slice(1).join(" ");
+    const phone = typeof user.user_metadata?.phone === "string" ? user.user_metadata.phone : "";
+
+    setShippingDetails((current) => ({
+      ...current,
+      firstName: current.firstName || firstName,
+      lastName: current.lastName || lastName,
+      email: current.email || user.email || "",
+      phone: current.phone || phone,
+    }));
+  }, [user]);
+
+  const updateShippingDetail = (field: keyof ShippingDetails, value: string) => {
+    setShippingDetails((current) => ({ ...current, [field]: value }));
+  };
+
+  const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setPlaced(true);
-    clearCart();
+    setError("");
+
+    if (!configured) {
+      setError("Supabase is not configured. Please add Supabase environment variables before placing orders.");
+      return;
+    }
+
+    setPlacing(true);
+    try {
+      const customerName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
+      const { error: insertError } = await getSupabase().from("orders").insert({
+        store_id: PRODUCT_STORE_ID,
+        user_id: user?.id || null,
+        items,
+        total,
+        status: "placed",
+        customer_name: customerName,
+        customer_email: shippingDetails.email,
+        customer_phone: shippingDetails.phone,
+        customer_address: shippingDetails.street,
+        customer_city: shippingDetails.city,
+        customer_state: shippingDetails.state,
+        customer_pincode: shippingDetails.pincode,
+      });
+
+      if (insertError) {
+        setError(insertError.message || "Failed to place order.");
+        return;
+      }
+
+      setPlaced(true);
+      clearCart();
+    } finally {
+      setPlacing(false);
+    }
   };
 
   if (placed) {
@@ -45,46 +131,53 @@ export function CheckoutClient() {
       <section className="billing-panel">
         <h1>Checkout</h1>
         <h2>Billing Details</h2>
+        {error ? <div className="checkout-error">{error}</div> : null}
         <div className="checkout-fields">
           <label>
             First name
-            <input required />
+            <input required value={shippingDetails.firstName} onChange={(event) => updateShippingDetail("firstName", event.target.value)} />
           </label>
           <label>
             Last name
-            <input required />
+            <input required value={shippingDetails.lastName} onChange={(event) => updateShippingDetail("lastName", event.target.value)} />
           </label>
           <label className="wide">
             Company name
-            <input />
+            <input value={shippingDetails.company} onChange={(event) => updateShippingDetail("company", event.target.value)} />
           </label>
           <label className="wide">
             Street address
-            <input required />
+            <input required value={shippingDetails.street} onChange={(event) => updateShippingDetail("street", event.target.value)} />
           </label>
           <label>
             Town / City
-            <input required />
+            <input required value={shippingDetails.city} onChange={(event) => updateShippingDetail("city", event.target.value)} />
           </label>
           <label>
             State
-            <input defaultValue="Tamil Nadu" required />
+            <input required value={shippingDetails.state} onChange={(event) => updateShippingDetail("state", event.target.value)} />
           </label>
           <label>
             PIN code
-            <input inputMode="numeric" required />
+            <input inputMode="numeric" required value={shippingDetails.pincode} onChange={(event) => updateShippingDetail("pincode", event.target.value)} />
           </label>
           <label>
             Phone
-            <input inputMode="tel" required />
+            <input inputMode="tel" required value={shippingDetails.phone} onChange={(event) => updateShippingDetail("phone", event.target.value)} />
           </label>
           <label className="wide">
             Email address
-            <input inputMode="email" required type="email" />
+            <input
+              inputMode="email"
+              required
+              type="email"
+              value={shippingDetails.email}
+              onChange={(event) => updateShippingDetail("email", event.target.value)}
+            />
           </label>
           <label className="wide">
             Order notes
-            <textarea rows={5} />
+            <textarea rows={5} value={shippingDetails.notes} onChange={(event) => updateShippingDetail("notes", event.target.value)} />
           </label>
         </div>
       </section>
@@ -138,8 +231,8 @@ export function CheckoutClient() {
           <strong>Direct bank transfer</strong>
           <p>Your order request will be confirmed by the MADHU GARMENTS team before payment collection.</p>
         </div>
-        <button className="place-order-button" type="submit">
-          Place Order
+        <button className="place-order-button" disabled={placing} type="submit">
+          {placing ? "Placing Order..." : "Place Order"}
         </button>
       </aside>
     </form>

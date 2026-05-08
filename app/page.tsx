@@ -21,8 +21,10 @@ const collectionCards = [
   },
 ];
 
-export default function Home() {
-  const products = getProducts();
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const products = await getProducts();
   const withImages = products.filter((product) => product.image);
   const newArrivals = withImages.slice(0, 12);
   const tshirts = withImages.filter((product) => product.categories.includes("T-Shirts")).slice(0, 15);

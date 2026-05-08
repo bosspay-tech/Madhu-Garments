@@ -40,8 +40,8 @@ export default function ContactPage() {
               <Phone />
               <span>
                 <h3>Phone</h3>
-                <p>Mobile : Contact store</p>
-                <p>E-mail: madhu.garments@example.com</p>
+                <p>Mobile : +91 7845414129</p>
+                <p>E-mail: sales@madhugarments.com</p>
               </span>
             </div>
             <div>
@@ -56,7 +56,7 @@ export default function ContactPage() {
               <Mail />
               <span>
                 <h3>Mail</h3>
-                <p>madhu.garments@example.com</p>
+                <p>sales@madhugarments.com</p>
               </span>
             </div>
           </aside>
