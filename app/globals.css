@@ -961,11 +961,20 @@ img {
   font-size: 13px;
 }
 
+.pagination a,
 .pagination strong {
   display: grid;
   width: 27px;
   height: 27px;
   place-items: center;
+  color: inherit;
+}
+
+.pagination a:hover {
+  color: var(--pink);
+}
+
+.pagination strong {
   border-radius: 50%;
   color: #ffffff;
   background: var(--pink);
