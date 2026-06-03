@@ -2,3 +2,5 @@ node_modules
 .next
 .env
 tsconfig.tsbuildinfo
+dev-server.log
+dev-server.err
