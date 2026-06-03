@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Minus, Plus, Search, ShoppingCart, UserRound, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Menu, Minus, Plus, Search, ShoppingCart, UserRound, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
 import { signOut } from "@/lib/auth-service";
@@ -28,11 +28,27 @@ export function SiteHeader() {
   const { user } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const activePath = useMemo(() => (pathname === "/" ? "/" : `/${pathname.split("/")[1]}`), [pathname]);
+
+  // Close the mobile menu whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  // Prevent background scroll while the mobile menu is open.
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
   const handleSignOut = async () => {
     await signOut();
     setAccountOpen(false);
+    setMenuOpen(false);
   };
 
   return (
@@ -48,6 +64,15 @@ export function SiteHeader() {
         <div className="shipping-bar">FREE SHIPPING ON ALL ORDERS OVER 2500. LEARN MORE!</div>
         <div className="main-header">
           <div className="container nav-row">
+            <button
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              className="nav-burger"
+              onClick={() => setMenuOpen(true)}
+              type="button"
+            >
+              <Menu />
+            </button>
             <Link className="brand-logo navbar-logo" href="/" aria-label="MADHU GARMENTS home">
               Madhu
               <small>GARMENTS</small>
@@ -105,6 +130,59 @@ export function SiteHeader() {
           </div>
         </div>
       </header>
+
+      {menuOpen && (
+        <div className="mobile-menu-overlay">
+          <button className="cart-shade" aria-label="Close menu" onClick={() => setMenuOpen(false)} type="button" />
+          <aside className="mobile-menu-drawer">
+            <div className="mobile-menu-head">
+              <span className="brand-logo">
+                Madhu
+                <small>GARMENTS</small>
+              </span>
+              <button aria-label="Close menu" onClick={() => setMenuOpen(false)} type="button">
+                <X />
+              </button>
+            </div>
+            <nav className="mobile-menu-nav" aria-label="Mobile navigation">
+              {links.map((link) => (
+                <Link
+                  className={activePath === link.href ? "active" : ""}
+                  href={link.href}
+                  key={link.href}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="mobile-menu-account">
+              {user ? (
+                <>
+                  <Link href="/my-account" onClick={() => setMenuOpen(false)}>
+                    Dashboard
+                  </Link>
+                  <Link href="/orders" onClick={() => setMenuOpen(false)}>
+                    Orders
+                  </Link>
+                  <button onClick={handleSignOut} type="button">
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setMenuOpen(false)}>
+                    Login
+                  </Link>
+                  <Link href="/signup" onClick={() => setMenuOpen(false)}>
+                    Sign up
+                  </Link>
+                </>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
 
       {searchOpen && (
         <div className="modal-backdrop" onClick={() => setSearchOpen(false)}>

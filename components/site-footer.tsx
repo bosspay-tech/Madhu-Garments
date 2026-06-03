@@ -38,10 +38,10 @@ export function SiteFooter() {
         </div>
         <div>
           <h3>Informations</h3>
-          <a href="#">Terms & Conditions</a>
-          <a href="#">Privacy Policy</a>
-          <a href="#">Refund and Returns Policy</a>
-          <a href="#">Shipping Policy</a>
+          <Link href="/terms-and-conditions">Terms & Conditions</Link>
+          <Link href="/privacy-policy">Privacy Policy</Link>
+          <Link href="/refund-and-returns-policy">Refund and Returns Policy</Link>
+          <Link href="/shipping-policy">Shipping Policy</Link>
         </div>
         <div className="newsletter">
           <h3>Newsletter</h3>

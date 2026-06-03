@@ -11,3 +11,5 @@
  ✓ Ready in 5.6s
  ○ Compiling /shop ...
  ✓ Compiled /shop in 29.8s (779 modules)
+ GET /shop?page=2 200 in 401ms
+ GET /shop?page=2 200 in 381ms

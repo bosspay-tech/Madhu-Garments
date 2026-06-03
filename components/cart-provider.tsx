@@ -79,11 +79,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
 
     const updateQuantity = (id: string, quantity: number) => {
-      setItems((current) =>
-        current
-          .map((item) => (item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item))
-          .filter((item) => item.quantity > 0),
-      );
+      setItems((current) => {
+        // Dropping below 1 removes the item from the cart.
+        if (quantity < 1) {
+          return current.filter((item) => item.id !== id);
+        }
+
+        return current.map((item) => (item.id === id ? { ...item, quantity } : item));
+      });
     };
 
     const removeItem = (id: string) => {
