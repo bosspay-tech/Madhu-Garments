@@ -7,11 +7,11 @@ export default function AboutPage() {
       <section className="about-intro container">
         <img src="/girlwithsareeforaboutus.png" alt="MADHU GARMENTS bridal clothing" />
         <div>
-          <h2>WELCOME TO MADHU GARMENTS (TAMIL NADU)</h2>
+          <h2>WELCOME TO MADHU GARMENTS</h2>
           <p>
             Welcome to <strong>MADHU GARMENTS</strong>, a premium clothing brand from
             Tiruppur, Tamil Nadu, dedicated to redefining style, comfort, and quality for modern
-            India.
+            India with PAN India delivery.
           </p>
           <p>
             At MADHU GARMENTS, fashion is more than just clothing. It is an expression of
@@ -60,7 +60,7 @@ export default function AboutPage() {
         <p>Locality: Kumarnathapuram</p>
         <p>City/Town/Village: Tiruppur</p>
         <p>District: Tiruppur</p>
-        <p>State : Thamilnadu</p>
+        <p>State: Tamil Nadu</p>
         <p>PIN Code: 641602</p>
         <p>GST : 33CFEPM5936E1ZJ</p>
         <p>UDYAM REG : UDYAM-TN-28-0018044</p>

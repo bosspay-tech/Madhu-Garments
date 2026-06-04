@@ -8,8 +8,29 @@
    - Environments: .env
 
  ✓ Starting...
- ✓ Ready in 5.6s
+ ✓ Ready in 58.6s
+ ○ Compiling / ...
+ ✓ Compiled / in 43s (785 modules)
+ HEAD / 200 in 49597ms
  ○ Compiling /shop ...
- ✓ Compiled /shop in 29.8s (779 modules)
- GET /shop?page=2 200 in 401ms
- GET /shop?page=2 200 in 381ms
+ ✓ Compiled /shop in 677ms (779 modules)
+ HEAD /shop?q=saree 200 in 2467ms
+ GET / 200 in 857ms
+ ○ Compiling /product/[id] ...
+ ✓ Compiled /product/[id] in 1193ms (797 modules)
+ GET /product/41c8fc50-eed4-4618-b46f-d4dc6fce090a 200 in 3546ms
+ ✓ Compiled in 444ms (499 modules)
+ GET /product/41c8fc50-eed4-4618-b46f-d4dc6fce090a 200 in 485ms
+ ✓ Compiled in 219ms (499 modules)
+ GET /product/41c8fc50-eed4-4618-b46f-d4dc6fce090a 200 in 341ms
+ ✓ Compiled /shop in 137ms (506 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 2.8s (1143 modules)
+ GET /shop?q=golden 500 in 6389ms
+ GET /product/41c8fc50-eed4-4618-b46f-d4dc6fce090a 500 in 3917ms
+ GET /product/41c8fc50-eed4-4618-b46f-d4dc6fce090a 200 in 277ms
+ GET /product/41c8fc50-eed4-4618-b46f-d4dc6fce090a 200 in 46ms
+ GET /product/41c8fc50-eed4-4618-b46f-d4dc6fce090a 200 in 461ms
+ ✓ Compiled in 236ms (700 modules)
+ ✓ Compiled in 186ms (700 modules)
+ GET /product/41c8fc50-eed4-4618-b46f-d4dc6fce090a 500 in 1824ms

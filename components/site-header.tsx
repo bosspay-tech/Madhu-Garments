@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, Minus, Plus, Search, ShoppingCart, UserRound, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
 import { signOut } from "@/lib/auth-service";
@@ -18,15 +18,17 @@ const links = [
 const marqueeItems = [
   "WELCOME TO MADHU GARMENTS",
   "SIGN UP & ENJOY 10% OFF",
-  "FREE SHIPPING ON ALL TAMIL NADU ORDERS RS. 2500+",
+  "PAN INDIA DELIVERY AVAILABLE",
   "SIGN UP & ENJOY 10% OFF",
 ];
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { cartOpen, closeCart, itemCount, items, openCart, subtotal, updateQuantity } = useCart();
   const { user } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -51,6 +53,14 @@ export function SiteHeader() {
     setMenuOpen(false);
   };
 
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+
+    router.push(query ? `/shop?q=${encodeURIComponent(query)}` : "/shop");
+    setSearchOpen(false);
+  };
+
   return (
     <>
       <header className="site-header">
@@ -61,7 +71,7 @@ export function SiteHeader() {
             ))}
           </div>
         </div>
-        <div className="shipping-bar">FREE SHIPPING ON ALL ORDERS OVER 2500. LEARN MORE!</div>
+        <div className="shipping-bar">PAN INDIA DELIVERY AVAILABLE. FREE SHIPPING ON ORDERS OVER RS. 2500.</div>
         <div className="main-header">
           <div className="container nav-row">
             <button
@@ -186,7 +196,7 @@ export function SiteHeader() {
 
       {searchOpen && (
         <div className="modal-backdrop" onClick={() => setSearchOpen(false)}>
-          <div className="search-modal" onClick={(event) => event.stopPropagation()}>
+          <form className="search-modal" onClick={(event) => event.stopPropagation()} onSubmit={handleSearchSubmit}>
             <div>
               <strong>TYPE TO SEARCH</strong>
               <button aria-label="Close search" onClick={() => setSearchOpen(false)} type="button">
@@ -194,10 +204,17 @@ export function SiteHeader() {
               </button>
             </div>
             <label>
-              <input autoFocus placeholder="Search products..." />
-              <Search />
+              <input
+                autoFocus
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+              <button aria-label="Search products" type="submit">
+                <Search />
+              </button>
             </label>
-          </div>
+          </form>
         </div>
       )}
 

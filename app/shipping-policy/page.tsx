@@ -33,9 +33,10 @@ export default function ShippingPolicyPage() {
       <h2>3. Shipping charges</h2>
       <ul>
         <li>
-          <strong>Free shipping</strong> on all Tamil Nadu orders over Rs. 2,500.
+          <strong>Free shipping</strong> on all India orders over Rs. 2,500.
         </li>
-        <li>Standard shipping charges, where applicable, are shown at checkout before payment.</li>
+        <li>PAN India delivery is available for serviceable PIN codes.</li>
+        <li>Standard shipping charges, where applicable, are shown before payment.</li>
       </ul>
 
       <h2>4. Order tracking</h2>

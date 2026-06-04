@@ -140,6 +140,35 @@ export function filterProductsByMaxPrice(products: Product[], maxPrice: number |
   return products.filter((product) => getProductUnitPrice(product) <= maxPrice);
 }
 
+export function filterProductsBySearch(products: Product[], query: string): Product[] {
+  const terms = query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!terms.length) {
+    return products;
+  }
+
+  return products.filter((product) => {
+    const searchable = [
+      product.name,
+      product.sku,
+      product.color,
+      product.categories,
+      product.shortDescription,
+      product.description,
+      product.tags,
+      product.brand,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return terms.every((term) => searchable.includes(term));
+  });
+}
+
 export function getColorCounts(products: Product[]): FilterCount[] {
   const counts = new Map<string, number>();
 
@@ -240,6 +269,7 @@ function categoriesToString(value: unknown) {
 function cleanHtml(value = "") {
   return value
     .replace(/<[^>]*>/g, " ")
+    .replace(/\\r\\n|\\n|\\r/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")

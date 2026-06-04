@@ -37,7 +37,7 @@ export function CheckoutClient() {
     company: "",
     street: "",
     city: "",
-    state: "Tamil Nadu",
+    state: "",
     pincode: "",
     phone: "",
     email: "",
@@ -177,7 +177,12 @@ export function CheckoutClient() {
           </label>
           <label>
             State
-            <input required value={shippingDetails.state} onChange={(event) => updateShippingDetail("state", event.target.value)} />
+            <input
+              placeholder="State"
+              required
+              value={shippingDetails.state}
+              onChange={(event) => updateShippingDetail("state", event.target.value)}
+            />
           </label>
           <label>
             PIN code
@@ -243,7 +248,7 @@ export function CheckoutClient() {
         </div>
         <div className="order-total-row">
           <span>Shipping</span>
-          <strong>Free</strong>
+          <strong>Free across India</strong>
         </div>
         <div className="order-grand-total">
           <span>Total</span>

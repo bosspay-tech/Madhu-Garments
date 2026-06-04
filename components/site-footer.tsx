@@ -7,7 +7,7 @@ const address = [
   "Locality: Kumarnathapuram",
   "City/Town/Village: Tiruppur",
   "District: Tiruppur",
-  "State : Thamilnadu",
+  "State: Tamil Nadu",
   "PIN Code: 641602",
   "Mobile : +91 7845414129",
 ];

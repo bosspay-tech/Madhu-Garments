@@ -5,6 +5,7 @@ import {
   filterProductsByCategory,
   filterProductsByColor,
   filterProductsByMaxPrice,
+  filterProductsBySearch,
   getCategoryCounts,
   getColorCounts,
   getShopProducts,
@@ -21,6 +22,7 @@ type ShopPageProps = {
     color?: string | string[];
     max_price?: string | string[];
     page?: string | string[];
+    q?: string | string[];
   }>;
 };
 
@@ -32,8 +34,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const selectedColor = getSingleParam(params?.color);
   const selectedMaxPrice = getPriceParam(params?.max_price);
   const selectedPage = getPageParam(params?.page);
+  const selectedQuery = getSingleParam(params?.q).trim();
   const allProducts = await getShopProducts();
-  const categoryProducts = selectedCategory ? filterProductsByCategory(allProducts, selectedCategory) : allProducts;
+  const searchProducts = selectedQuery ? filterProductsBySearch(allProducts, selectedQuery) : allProducts;
+  const categoryProducts = selectedCategory ? filterProductsByCategory(searchProducts, selectedCategory) : searchProducts;
   const colorProducts = selectedColor ? filterProductsByColor(categoryProducts, selectedColor) : categoryProducts;
   const filteredProducts = filterProductsByMaxPrice(colorProducts, selectedMaxPrice);
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / productsPerPage));
@@ -46,12 +50,15 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const visibleStart = filteredProducts.length ? pageStart + 1 : 0;
   const visibleEnd = pageStart + products.length;
   const resultLabel = filteredProducts.length
-    ? `Showing ${visibleStart}-${visibleEnd} of ${filteredProducts.length} results`
+    ? `Showing ${visibleStart}-${visibleEnd} of ${filteredProducts.length} results${
+        selectedQuery ? ` for "${selectedQuery}"` : ""
+      }`
     : "Showing 0 results";
   const sharedParams = {
     category: selectedCategory,
     color: selectedColor,
     max_price: selectedMaxPrice ? String(selectedMaxPrice) : "",
+    q: selectedQuery,
   };
 
   return (
@@ -59,10 +66,21 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       <PageHero title={selectedCategory ? `Category: ${selectedCategory}` : "Shop"} />
       <section className="shop-wrap container">
         <aside className="shop-sidebar">
-          <label className="sidebar-search">
-            <span>Search products...</span>
-            <Search size={18} />
-          </label>
+          <form className="sidebar-search" action="/shop">
+            {selectedCategory ? <input name="category" type="hidden" value={selectedCategory} /> : null}
+            {selectedColor ? <input name="color" type="hidden" value={selectedColor} /> : null}
+            {selectedMaxPrice ? <input name="max_price" type="hidden" value={selectedMaxPrice} /> : null}
+            <label htmlFor="shop-search">Search products</label>
+            <input
+              id="shop-search"
+              name="q"
+              placeholder="Search products..."
+              defaultValue={selectedQuery}
+            />
+            <button aria-label="Search products" type="submit">
+              <Search size={18} />
+            </button>
+          </form>
 
           <h3>Categories</h3>
           <ul className="category-list">
@@ -89,6 +107,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
           <h3>Filter By</h3>
           <form className="price-filter" action="/shop">
+            {selectedQuery ? <input name="q" type="hidden" value={selectedQuery} /> : null}
             {selectedCategory ? <input name="category" type="hidden" value={selectedCategory} /> : null}
             {selectedColor ? <input name="color" type="hidden" value={selectedColor} /> : null}
             <input
@@ -220,7 +239,7 @@ function getPaginationItems(currentPage: number, totalPages: number) {
   return items;
 }
 
-function buildShopHref(params: { category?: string; color?: string; max_price?: string; page?: string }) {
+function buildShopHref(params: { category?: string; color?: string; max_price?: string; page?: string; q?: string }) {
   const query = new URLSearchParams();
 
   for (const [key, value] of Object.entries(params)) {

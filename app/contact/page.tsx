@@ -1,7 +1,37 @@
+"use client";
+
+import { FormEvent, useState } from "react";
 import { Mail, MapPin, Phone, Timer } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 
 export default function ContactPage() {
+  const [status, setStatus] = useState("");
+
+  const handleContactSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("name") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const subject = String(formData.get("subject") ?? "").trim() || "Website enquiry";
+    const message = String(formData.get("message") ?? "").trim();
+
+    if (!name || !email || !message) {
+      setStatus("Please enter your name, email, and message before submitting.");
+      return;
+    }
+
+    const body = [
+      `Name: ${name}`,
+      `Email: ${email}`,
+      "",
+      "Message:",
+      message,
+    ].join("\n");
+
+    window.location.href = `mailto:sales@madhugarments.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setStatus("Your email app is opening with the message addressed to MADHU GARMENTS.");
+  };
+
   return (
     <main>
       <PageHero title="Contact Us" plain />
@@ -15,8 +45,8 @@ export default function ContactPage() {
       <section className="contact-section container">
         <h2>Get in touch with us</h2>
         <p className="contact-kicker">
-          FOR MORE INFORMATION ABOUT OUR PRODUCT & SERVICES, PLEASE FEEL FREE TO DROP US AN EMAIL.
-          OUR STAFF ALWAYS BE THERE TO HELP YOU OUT. DO NOT HESITATE!
+          FOR PRODUCT ENQUIRIES, BULK ORDERS, SHIPPING SUPPORT, OR SERVICE QUESTIONS, SEND US A
+          MESSAGE AND OUR TEAM WILL GET BACK TO YOU.
         </p>
         <div className="contact-grid">
           <aside className="contact-details">
@@ -30,7 +60,7 @@ export default function ContactPage() {
                 <p>Locality: Kumarnathapuram</p>
                 <p>City/Town/Village: Tiruppur</p>
                 <p>District: Tiruppur</p>
-                <p>State : Thamilnadu</p>
+                <p>State: Tamil Nadu</p>
                 <p>PIN Code: 641602</p>
                 <p>GST : 33CFEPM5936E1ZJ</p>
                 <p>UDYAM REG : UDYAM-TN-28-0018044</p>
@@ -60,27 +90,28 @@ export default function ContactPage() {
               </span>
             </div>
           </aside>
-          <form className="contact-form">
+          <form className="contact-form" onSubmit={handleContactSubmit}>
             <h3>Drop us a line</h3>
             <div className="form-row">
               <label>
                 Name*
-                <input placeholder="John Doe" />
+                <input name="name" placeholder="Your name" required />
               </label>
               <label>
                 Email*
-                <input placeholder="your@email.com" />
+                <input name="email" placeholder="your@email.com" required type="email" />
               </label>
             </div>
             <label>
               Subject
-              <input placeholder="This is an optional" />
+              <input name="subject" placeholder="Bulk order, product enquiry, shipping support..." />
             </label>
             <label>
               Message*
-              <textarea placeholder="Hi! I'd like to ask about..." />
+              <textarea name="message" placeholder="Tell us what you need, quantity, destination city, or product details." required />
             </label>
-            <button type="button">Submit</button>
+            {status ? <p className="contact-status">{status}</p> : null}
+            <button type="submit">Submit</button>
           </form>
         </div>
       </section>
