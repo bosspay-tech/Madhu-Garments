@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@dollerpayx-easebuzz/bridge-node": "file:vendor/dollerpayx-easebuzz-bridge.zip",
     "@supabase/supabase-js": "^2.105.4",
     "lucide-react": "^0.468.0",
     "next": "^15.0.0",
