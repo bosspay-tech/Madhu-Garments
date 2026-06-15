@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { initiateEasebuzzPayment } from "@/lib/easebuzz";
 import { getEasebuzzConfig, resolveSiteUrl } from "@/lib/easebuzz-config";
+import {
+  buildEasebuzzRequestOptions,
+  buildInitiateParamsFromRequest,
+  type CreateEasebuzzPaymentRequest,
+} from "@/lib/easebuzz-request";
 
 export async function POST(request: Request) {
   const easebuzzConfig = getEasebuzzConfig();
@@ -16,24 +21,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
-    const {
-      amount,
-      collect_ref,
-      display_name,
-      txn_note,
-      user_ref,
-      email,
-      phone,
-      productinfo,
-      surl,
-      furl,
-      address1,
-      city,
-      state,
-      country,
-      zipcode,
-    } = body ?? {};
+    const body = (await request.json()) as CreateEasebuzzPaymentRequest;
+    const { amount, collect_ref, display_name, email, phone, user_ref, txn_note } = body ?? {};
 
     if (!amount || Number(amount) <= 0) {
       return NextResponse.json({ success: false, error: "Invalid amount" }, { status: 400 });
@@ -53,25 +42,25 @@ export async function POST(request: Request) {
     }
 
     const siteUrl = resolveSiteUrl(request);
-    const successUrl = surl || `${siteUrl}/api/easebuzz/return?outcome=success`;
-    const failureUrl = furl || `${siteUrl}/api/easebuzz/return?outcome=failed`;
+    const successUrl = body.surl || `${siteUrl}/api/easebuzz/return?outcome=success`;
+    const failureUrl = body.furl || `${siteUrl}/api/easebuzz/return?outcome=failed`;
 
-    const result = await initiateEasebuzzPayment(easebuzzConfig, {
+    const params = buildInitiateParamsFromRequest(body, {
       txnid,
-      amount: Number(amount),
-      productinfo: productinfo || txn_note || `Order ${txnid}`,
       firstname,
       email: customerEmail,
       phone: customerPhone,
       surl: successUrl,
       furl: failureUrl,
-      udf1: txnid,
-      address1: address1 || undefined,
-      city: city || undefined,
-      state: state || undefined,
-      country: country || "India",
-      zipcode: zipcode || undefined,
+      productinfo: txn_note ? String(txn_note) : `Order ${txnid}`,
+      amount: Number(amount),
     });
+
+    const result = await initiateEasebuzzPayment(
+      easebuzzConfig,
+      params,
+      buildEasebuzzRequestOptions(body),
+    );
 
     return NextResponse.json({
       success: true,

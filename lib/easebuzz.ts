@@ -32,6 +32,18 @@ export interface InitiateEasebuzzPaymentParams {
   state?: string;
   country?: string;
   zipcode?: string;
+  show_payment_mode?: string;
+  sub_merchant_id?: string;
+  request_flow?: string;
+  split_payments?: string;
+  customer_authentication_id?: string;
+  final_collection_date?: string;
+  /** Extra form fields sent to Easebuzz (not included in hash). */
+  extraFields?: Record<string, string>;
+}
+
+export interface EasebuzzRequestOptions {
+  headers?: Record<string, string>;
 }
 
 export interface EasebuzzInitiateResult {
@@ -77,7 +89,7 @@ function buildFieldMap(
   config: EasebuzzConfig,
   params: InitiateEasebuzzPaymentParams,
 ): Record<string, string> {
-  return {
+  const fields: Record<string, string> = {
     key: config.key,
     txnid: params.txnid,
     amount: formatAmount(params.amount),
@@ -104,6 +116,38 @@ function buildFieldMap(
     country: params.country ?? "",
     zipcode: params.zipcode ?? "",
   };
+
+  const optionalEasebuzzFields: Array<keyof InitiateEasebuzzPaymentParams> = [
+    "show_payment_mode",
+    "sub_merchant_id",
+    "request_flow",
+    "split_payments",
+    "customer_authentication_id",
+    "final_collection_date",
+  ];
+
+  for (const key of optionalEasebuzzFields) {
+    const value = params[key];
+    if (typeof value === "string" && value.trim() !== "") {
+      fields[key] = value.trim();
+    }
+  }
+
+  return fields;
+}
+
+function buildEasebuzzHeaders(options?: EasebuzzRequestOptions): Record<string, string> {
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/x-www-form-urlencoded",
+    ...options?.headers,
+  };
+}
+
+function appendBodyFields(body: URLSearchParams, fields: Record<string, string>) {
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== "") body.set(key, value);
+  }
 }
 
 export function buildInitiateHash(fields: Record<string, string>, salt: string): string {
@@ -137,23 +181,23 @@ export function buildRetrieveHash(key: string, txnid: string, salt: string): str
 export async function initiateEasebuzzPayment(
   config: EasebuzzConfig,
   params: InitiateEasebuzzPaymentParams,
+  options?: EasebuzzRequestOptions,
 ): Promise<EasebuzzInitiateResult> {
   const fields = buildFieldMap(config, params);
   fields.hash = buildInitiateHash(fields, config.salt);
 
   const body = new URLSearchParams();
-  for (const [key, value] of Object.entries(fields)) {
-    if (value !== "") body.set(key, value);
-  }
+  appendBodyFields(body, fields);
   body.set("hash", fields.hash);
+
+  if (params.extraFields) {
+    appendBodyFields(body, params.extraFields);
+  }
 
   const url = `${normalizeBaseUrl(config.payBaseUrl)}/payment/initiateLink`;
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers: buildEasebuzzHeaders(options),
     body,
   });
 
@@ -183,6 +227,7 @@ export async function initiateEasebuzzPayment(
 export async function retrieveEasebuzzTransaction(
   config: EasebuzzConfig,
   txnid: string,
+  options?: EasebuzzRequestOptions,
 ): Promise<EasebuzzRetrieveResponse> {
   const hash = buildRetrieveHash(config.key, txnid, config.salt);
   const body = new URLSearchParams({
@@ -193,10 +238,7 @@ export async function retrieveEasebuzzTransaction(
 
   const response = await fetch(config.statusUrl, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers: buildEasebuzzHeaders(options),
     body,
   });
 
@@ -206,6 +248,20 @@ export async function retrieveEasebuzzTransaction(
   } catch {
     throw new Error(`Easebuzz retrieve returned non-JSON: ${raw.slice(0, 200)}`);
   }
+}
+
+export function resolveEasebuzzStatus(status?: string): "success" | "failed" | "pending" {
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "success") return "success";
+  if (
+    normalized === "failure" ||
+    normalized === "failed" ||
+    normalized === "usercancelled" ||
+    normalized === "cancelled"
+  ) {
+    return "failed";
+  }
+  return "pending";
 }
 
 export function normalizeEasebuzzStatusResponse(result: EasebuzzRetrieveResponse, txnid: string) {

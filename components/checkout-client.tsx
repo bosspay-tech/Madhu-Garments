@@ -125,6 +125,10 @@ export function CheckoutClient() {
           state: shippingDetails.state,
           pincode: shippingDetails.pincode,
         },
+        extras: {
+          udf2: shippingDetails.company || undefined,
+          udf3: shippingDetails.notes || undefined,
+        },
       });
 
       if (!payment.success || !payment.checkoutUrl) {

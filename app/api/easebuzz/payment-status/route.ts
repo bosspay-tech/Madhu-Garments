@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeEasebuzzStatusResponse, retrieveEasebuzzTransaction } from "@/lib/easebuzz";
 import { getEasebuzzConfig } from "@/lib/easebuzz-config";
+import { buildEasebuzzRequestOptions, type PaymentStatusRequest } from "@/lib/easebuzz-request";
 
 export async function POST(request: Request) {
   const easebuzzConfig = getEasebuzzConfig();
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const body = (await request.json()) as PaymentStatusRequest;
     const { collect_refs, txnid } = body ?? {};
     const refs = Array.isArray(collect_refs) ? collect_refs : txnid ? [txnid] : [];
 
@@ -31,7 +32,11 @@ export async function POST(request: Request) {
     }
 
     const primaryTxnId = String(refs[0]);
-    const result = await retrieveEasebuzzTransaction(easebuzzConfig, primaryTxnId);
+    const result = await retrieveEasebuzzTransaction(
+      easebuzzConfig,
+      primaryTxnId,
+      buildEasebuzzRequestOptions(body),
+    );
     const normalized = normalizeEasebuzzStatusResponse(result, primaryTxnId);
 
     return NextResponse.json(normalized, { status: normalized.success ? 200 : 404 });

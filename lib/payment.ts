@@ -8,14 +8,41 @@ export type PaymentCustomer = {
   pincode: string;
 };
 
+export type EasebuzzPaymentExtras = {
+  productinfo?: string;
+  txn_note?: string;
+  address2?: string;
+  country?: string;
+  udf1?: string;
+  udf2?: string;
+  udf3?: string;
+  udf4?: string;
+  udf5?: string;
+  udf6?: string;
+  udf7?: string;
+  udf8?: string;
+  udf9?: string;
+  udf10?: string;
+  show_payment_mode?: string;
+  sub_merchant_id?: string;
+  request_flow?: string;
+  split_payments?: string;
+  customer_authentication_id?: string;
+  final_collection_date?: string;
+  extra_fields?: Record<string, string>;
+  headers?: Record<string, string>;
+};
+
 export async function createEasebuzzPaymentSession({
   collectRef,
   amount,
   customer,
+  extras,
 }: {
   collectRef: string;
   amount: number;
   customer: PaymentCustomer;
+  extras?: EasebuzzPaymentExtras;
 }) {
   const response = await fetch("/api/easebuzz/create-payment", {
     method: "POST",
@@ -27,13 +54,32 @@ export async function createEasebuzzPaymentSession({
       email: customer.email,
       phone: customer.phone,
       user_ref: customer.phone,
-      txn_note: `Order ${collectRef}`,
-      productinfo: `MADHU GARMENTS order ${collectRef}`,
+      txn_note: extras?.txn_note ?? `Order ${collectRef}`,
+      productinfo: extras?.productinfo ?? `MADHU GARMENTS order ${collectRef}`,
       address1: customer.address,
+      address2: extras?.address2,
       city: customer.city,
       state: customer.state,
       zipcode: customer.pincode,
-      country: "India",
+      country: extras?.country ?? "India",
+      udf1: extras?.udf1,
+      udf2: extras?.udf2,
+      udf3: extras?.udf3,
+      udf4: extras?.udf4,
+      udf5: extras?.udf5,
+      udf6: extras?.udf6,
+      udf7: extras?.udf7,
+      udf8: extras?.udf8,
+      udf9: extras?.udf9,
+      udf10: extras?.udf10,
+      show_payment_mode: extras?.show_payment_mode,
+      sub_merchant_id: extras?.sub_merchant_id,
+      request_flow: extras?.request_flow,
+      split_payments: extras?.split_payments,
+      customer_authentication_id: extras?.customer_authentication_id,
+      final_collection_date: extras?.final_collection_date,
+      extra_fields: extras?.extra_fields,
+      headers: extras?.headers,
     }),
   });
 
