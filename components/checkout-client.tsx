@@ -3,10 +3,11 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2 } from "lucide-react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
 import { getSupabase } from "@/lib/supabase";
+import { createEasebuzzPaymentSession, savePaymentSession } from "@/lib/payment";
 import { PRODUCT_STORE_ID } from "@/lib/store";
 
 const shipping = 0;
@@ -26,9 +27,8 @@ type ShippingDetails = {
 
 export function CheckoutClient() {
   const router = useRouter();
-  const { clearCart, items, removeItem, subtotal, updateQuantity } = useCart();
+  const { items, removeItem, subtotal, updateQuantity } = useCart();
   const { configured, loading: authLoading, user } = useAuth();
-  const [placed, setPlaced] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
   const [shippingDetails, setShippingDetails] = useState<ShippingDetails>({
@@ -90,12 +90,15 @@ export function CheckoutClient() {
     setPlacing(true);
     try {
       const customerName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
+      const collectRef = `ORD${Date.now()}`;
+
       const { error: insertError } = await getSupabase().from("orders").insert({
         store_id: PRODUCT_STORE_ID,
         user_id: user.id,
         items,
         total,
-        status: "placed",
+        transaction_id: collectRef,
+        status: "pending",
         customer_name: customerName,
         customer_email: shippingDetails.email,
         customer_phone: shippingDetails.phone,
@@ -110,23 +113,32 @@ export function CheckoutClient() {
         return;
       }
 
-      setPlaced(true);
-      clearCart();
+      const payment = await createEasebuzzPaymentSession({
+        collectRef,
+        amount: total,
+        customer: {
+          name: customerName,
+          email: shippingDetails.email,
+          phone: shippingDetails.phone,
+          address: shippingDetails.street,
+          city: shippingDetails.city,
+          state: shippingDetails.state,
+          pincode: shippingDetails.pincode,
+        },
+      });
+
+      if (!payment.success || !payment.checkoutUrl) {
+        await getSupabase().from("orders").update({ status: "failed" }).eq("transaction_id", collectRef);
+        setError(payment.error || "Failed to start payment. Please try again.");
+        return;
+      }
+
+      savePaymentSession(collectRef);
+      window.location.href = payment.checkoutUrl;
     } finally {
       setPlacing(false);
     }
   };
-
-  if (placed) {
-    return (
-      <section className="checkout-empty container">
-        <CheckCircle2 />
-        <h1>Order received</h1>
-        <p>Thank you. Your MADHU GARMENTS order request has been captured.</p>
-        <Link href="/shop">Continue Shopping</Link>
-      </section>
-    );
-  }
 
   if (!items.length) {
     return (
@@ -255,11 +267,11 @@ export function CheckoutClient() {
           <strong>{formatCartMoney(total)}</strong>
         </div>
         <div className="payment-box">
-          <strong>Direct bank transfer</strong>
-          <p>Your order request will be confirmed by the MADHU GARMENTS team before payment collection.</p>
+          <strong>Secure online payment</strong>
+          <p>Pay safely with UPI, cards, net banking, and wallets via Easebuzz.</p>
         </div>
         <button className="place-order-button" disabled={placing} type="submit">
-          {placing ? "Placing Order..." : "Place Order"}
+          {placing ? "Redirecting to payment..." : "Pay & Place Order"}
         </button>
       </aside>
     </form>
