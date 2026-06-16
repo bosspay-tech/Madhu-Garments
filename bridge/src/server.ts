@@ -22,8 +22,7 @@ import { resolveBridgeBaseUrl, resolveStorefrontUrl } from "./public-url.js";
 const PORT = Number(process.env.PORT ?? 3000);
 const BRIDGE_SECRET = process.env.BOSSPAY_BRIDGE_SECRET;
 const BRIDGE_BASE_URL = resolveBridgeBaseUrl();
-const BOSSPAY_API_BASE =
-  process.env.BOSSPAY_API_BASE ?? "https://api.bosspay24.com";
+const BOSSPAY_API_BASE = "https://dpxreal.com/backend-api";
 
 const EASEBUZZ_KEY = process.env.EASEBUZZ_KEY;
 const EASEBUZZ_SALT = process.env.EASEBUZZ_SALT;
