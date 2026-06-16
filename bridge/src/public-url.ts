@@ -54,10 +54,19 @@ function originFromRequest(req: Request): string | null {
   return origin;
 }
 
+function isBossPayApiUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "api.bosspay24.com" || host === "dpxreal.com";
+  } catch {
+    return url.includes("api.bosspay24.com") || url.includes("dpxreal.com");
+  }
+}
+
 function resolveFromEnv(...keys: string[]): string | null {
   for (const key of keys) {
     const value = firstOrigin(process.env[key]);
-    if (!value || isLocalhost(value)) continue;
+    if (!value || isLocalhost(value) || isBossPayApiUrl(value)) continue;
     return value;
   }
   return null;
