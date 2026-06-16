@@ -1754,6 +1754,107 @@ img {
   text-transform: capitalize;
 }
 
+.order-status-badge {
+  text-transform: none;
+}
+
+.order-status-badge--success {
+  color: #1f6a57;
+  background: #e4f4ee;
+}
+
+.order-status-badge--failed {
+  color: #9d2f28;
+  background: #fdeeed;
+}
+
+.order-status-badge--pending,
+.order-status-badge--placed,
+.order-status-badge--unknown {
+  color: #8a6118;
+  background: #fff2df;
+}
+
+.orders-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.orders-panel .orders-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.orders-panel .orders-filter-label {
+  display: inline-block;
+}
+
+.orders-panel .orders-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #f4f7f4;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.orders-panel .orders-filter.is-active {
+  border-color: var(--pink);
+  color: #ffffff;
+  background: var(--pink);
+}
+
+.orders-panel .orders-filter.is-active .orders-filter-count {
+  color: var(--pink);
+  background: #ffffff;
+}
+
+.orders-sync-note {
+  margin-bottom: 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.order-history-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.order-retry-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 19px;
+  color: #ffffff;
+  background: var(--pink);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .order-history-items {
   display: grid;
   gap: 10px;

@@ -7,6 +7,7 @@ import { CheckCircle2, Clock3, LoaderCircle, XCircle } from "lucide-react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { getSupabase } from "@/lib/supabase";
 import { createEasebuzzPaymentSession, orderToCustomer, savePaymentSession } from "@/lib/payment";
+import { updateOrderStatus } from "@/lib/orders";
 
 const ORDER_SELECT =
   "status, total, customer_name, customer_email, customer_phone, customer_address, customer_city, customer_state, customer_pincode";
@@ -108,7 +109,7 @@ export function OrderSuccessClient() {
           const paymentStatus = (payment.status || "").toUpperCase();
 
           if (paymentStatus === "SUCCESS" || paymentStatus === "CAPTURED") {
-            await getSupabase().from("orders").update({ status: "success" }).eq("transaction_id", collectRef);
+            await updateOrderStatus(collectRef, "success");
             clearCart();
             sessionStorage.removeItem("payment_gateway");
             sessionStorage.removeItem("payment_collect_ref");
@@ -123,7 +124,7 @@ export function OrderSuccessClient() {
             paymentStatus === "CANCELLED" ||
             paymentStatus === "USERCANCELLED"
           ) {
-            await getSupabase().from("orders").update({ status: "failed" }).eq("transaction_id", collectRef);
+            await updateOrderStatus(collectRef, "failed");
             setStatus("failed");
             setMessage("Your payment was cancelled or could not be completed.");
             return;
@@ -157,7 +158,7 @@ export function OrderSuccessClient() {
       setRetryError("");
       setRetryLoading(true);
 
-      await getSupabase().from("orders").update({ status: "pending" }).eq("transaction_id", txnId);
+      await updateOrderStatus(txnId, "pending");
 
       const data = await createEasebuzzPaymentSession({
         collectRef: txnId,

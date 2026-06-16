@@ -6,6 +6,8 @@ import { PackageCheck } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { formatCartMoney } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
+import { getOrderStatusLabel, normalizeOrderStatus, type OrderStatusValue } from "@/lib/order-status";
+import { syncOrderPaymentStatus } from "@/lib/orders";
 import { getSupabase } from "@/lib/supabase";
 import { PRODUCT_STORE_ID } from "@/lib/store";
 
@@ -24,16 +26,21 @@ type Order = {
   items?: OrderItem[];
   total?: number | string;
   status?: string;
+  transaction_id?: string;
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string;
 };
 
+type StatusFilter = "all" | OrderStatusValue;
+
 export function OrdersClient() {
   const { configured, loading: authLoading, user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   useEffect(() => {
     if (authLoading || !configured || !user) {
@@ -58,11 +65,46 @@ export function OrdersClient() {
       if (ordersError) {
         setError(ordersError.message || "Failed to load orders.");
         setOrders([]);
-      } else {
-        setOrders((data ?? []) as Order[]);
+        setLoading(false);
+        return;
       }
 
+      const nextOrders = (data ?? []) as Order[];
+      setOrders(nextOrders);
       setLoading(false);
+
+      const pendingOrders = nextOrders.filter(
+        (order) => normalizeOrderStatus(order.status) === "pending" && order.transaction_id,
+      );
+
+      if (!pendingOrders.length) {
+        return;
+      }
+
+      setSyncing(true);
+
+      const syncedOrders = [...nextOrders];
+
+      for (const order of pendingOrders) {
+        if (!order.transaction_id) continue;
+
+        try {
+          const syncedStatus = await syncOrderPaymentStatus(order.transaction_id);
+          if (!alive || !syncedStatus) continue;
+
+          const index = syncedOrders.findIndex((item) => item.id === order.id);
+          if (index >= 0) {
+            syncedOrders[index] = { ...syncedOrders[index], status: syncedStatus };
+          }
+        } catch (syncError) {
+          console.error("Failed to sync order status:", syncError);
+        }
+      }
+
+      if (alive) {
+        setOrders(syncedOrders);
+        setSyncing(false);
+      }
     };
 
     fetchOrders();
@@ -72,7 +114,33 @@ export function OrdersClient() {
     };
   }, [authLoading, configured, user]);
 
-  const totalSpent = useMemo(() => orders.reduce((sum, order) => sum + Number(order.total || 0), 0), [orders]);
+  const filteredOrders = useMemo(() => {
+    if (statusFilter === "all") {
+      return orders;
+    }
+
+    return orders.filter((order) => normalizeOrderStatus(order.status) === statusFilter);
+  }, [orders, statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    return orders.reduce(
+      (counts, order) => {
+        const status = normalizeOrderStatus(order.status);
+        counts[status] = (counts[status] || 0) + 1;
+        counts.all += 1;
+        return counts;
+      },
+      { all: 0, success: 0, failed: 0, pending: 0, placed: 0, unknown: 0 },
+    );
+  }, [orders]);
+
+  const totalSpent = useMemo(
+    () =>
+      orders
+        .filter((order) => normalizeOrderStatus(order.status) === "success")
+        .reduce((sum, order) => sum + Number(order.total || 0), 0),
+    [orders],
+  );
 
   if (!configured) {
     return (
@@ -104,6 +172,13 @@ export function OrdersClient() {
     );
   }
 
+  const filters: Array<{ key: StatusFilter; label: string }> = [
+    { key: "all", label: "All" },
+    { key: "success", label: "Paid" },
+    { key: "failed", label: "Failed" },
+    { key: "pending", label: "Pending" },
+  ];
+
   return (
     <>
       <AccountMenu active="orders" />
@@ -111,15 +186,32 @@ export function OrdersClient() {
         <div className="orders-header">
           <div>
             <h2>My orders</h2>
-            <p>Orders placed while logged in with this email account.</p>
+            <p>Track paid, failed, and pending payments from your account.</p>
           </div>
           <div className="orders-summary">
             <span>{orders.length} orders</span>
-            <strong>{formatCartMoney(totalSpent)}</strong>
+            <strong>{formatCartMoney(totalSpent)} paid</strong>
           </div>
         </div>
 
+        {syncing ? <div className="orders-sync-note">Refreshing payment status for pending orders...</div> : null}
         {error ? <div className="checkout-error">{error}</div> : null}
+
+        {orders.length ? (
+          <div className="orders-filters">
+            {filters.map((filter) => (
+              <button
+                className={`orders-filter${statusFilter === filter.key ? " is-active" : ""}`}
+                key={filter.key}
+                onClick={() => setStatusFilter(filter.key)}
+                type="button"
+              >
+                <span className="orders-filter-label">{filter.label}</span>
+                <span className="orders-filter-count">{statusCounts[filter.key] || 0}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="orders-list">
@@ -131,36 +223,55 @@ export function OrdersClient() {
               </div>
             ))}
           </div>
-        ) : orders.length ? (
+        ) : filteredOrders.length ? (
           <div className="orders-list">
-            {orders.map((order) => (
-              <article className="order-history-card" key={order.id}>
-                <div className="order-history-top">
-                  <div>
-                    <span>{formatDate(order.created_at)}</span>
-                    <h3>Order #{shortOrderId(order.id)}</h3>
+            {filteredOrders.map((order) => {
+              const status = normalizeOrderStatus(order.status);
+
+              return (
+                <article className="order-history-card" key={order.id}>
+                  <div className="order-history-top">
+                    <div>
+                      <span>{formatDate(order.created_at)}</span>
+                      <h3>Order #{shortOrderId(order.transaction_id || order.id)}</h3>
+                    </div>
+                    <strong>{formatCartMoney(Number(order.total || 0))}</strong>
                   </div>
-                  <strong>{formatCartMoney(Number(order.total || 0))}</strong>
-                </div>
-                <div className="order-history-meta">
-                  <span>{order.status || "placed"}</span>
-                  <span>{order.items?.length ?? 0} item types</span>
-                  {order.customer_phone ? <span>{order.customer_phone}</span> : null}
-                </div>
-                {order.items?.length ? (
-                  <div className="order-history-items">
-                    {order.items.slice(0, 3).map((item, index) => (
-                      <div key={`${item.id ?? item.name ?? "item"}-${index}`}>
-                        {item.image ? <img src={item.image} alt={item.name || "Ordered item"} /> : <PackageCheck size={18} />}
-                        <span>{item.name || "Product"}</span>
-                        <strong>x{item.quantity ?? 1}</strong>
-                      </div>
-                    ))}
-                    {order.items.length > 3 ? <em>+{order.items.length - 3} more</em> : null}
+                  <div className="order-history-meta">
+                    <span className={`order-status-badge order-status-badge--${status}`}>
+                      {getOrderStatusLabel(order.status)}
+                    </span>
+                    <span>{order.items?.length ?? 0} item types</span>
+                    {order.customer_phone ? <span>{order.customer_phone}</span> : null}
                   </div>
-                ) : null}
-              </article>
-            ))}
+                  {order.items?.length ? (
+                    <div className="order-history-items">
+                      {order.items.slice(0, 3).map((item, index) => (
+                        <div key={`${item.id ?? item.name ?? "item"}-${index}`}>
+                          {item.image ? <img src={item.image} alt={item.name || "Ordered item"} /> : <PackageCheck size={18} />}
+                          <span>{item.name || "Product"}</span>
+                          <strong>x{item.quantity ?? 1}</strong>
+                        </div>
+                      ))}
+                      {order.items.length > 3 ? <em>+{order.items.length - 3} more</em> : null}
+                    </div>
+                  ) : null}
+                  {status === "failed" && order.transaction_id ? (
+                    <div className="order-history-actions">
+                      <Link className="order-retry-link" href={`/order-success?collect_ref=${order.transaction_id}&status=failed`}>
+                        Retry payment
+                      </Link>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : orders.length ? (
+          <div className="orders-empty">
+            <PackageCheck />
+            <h3>No {statusFilter === "all" ? "" : `${getOrderStatusLabel(statusFilter).toLowerCase()} `}orders</h3>
+            <p>Try another filter to view your order history.</p>
           </div>
         ) : (
           <div className="orders-empty">
