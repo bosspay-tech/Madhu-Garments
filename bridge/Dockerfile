@@ -3,7 +3,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-COPY dpx-bridge-node.tgz ./
+COPY vendor/ vendor/
 
 RUN npm install
 
@@ -17,7 +17,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-COPY dpx-bridge-node.tgz ./
+COPY vendor/ vendor/
 
 RUN npm install --omit=dev
 

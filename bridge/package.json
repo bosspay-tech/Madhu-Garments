@@ -1,17 +1,18 @@
 {
-  "name": "dollerpayx-easebuzz-bridge",
+  "name": "madhu-garments-bosspay-bridge",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Turnkey Easebuzz bridge for DollerpayX. Holds the Easebuzz merchant key/salt, mints the UPI intent, serves /status, and forwards the Easebuzz webhook to DollerpayX over the shared HMAC contract.",
+  "description": "BossPay bridge for Madhu Garments — DollerpayX Easebuzz collect/status",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
-    "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@dpx/bridge-node": "file:./dpx-bridge-node.tgz",
+    "@bosspay/bridge-node": "file:./vendor/bosspay-bridge-node-1.0.0.tgz",
+    "@dollerpayx-easebuzz/bridge-node": "file:vendor/dollerpayx-easebuzz-bridge.zip",
     "dotenv": "^17.4.2",
     "express": "^5.0.0"
   },
@@ -20,8 +21,5 @@
     "@types/node": "^20.11.0",
     "tsx": "^4.7.0",
     "typescript": "^5.6.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
