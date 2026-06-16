@@ -2427,6 +2427,16 @@ img {
   resize: vertical;
 }
 
+.checkout-field-hint {
+  color: #777777;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.checkout-field-hint-error {
+  color: #9d2f28;
+}
+
 .order-panel {
   align-self: start;
   padding: 28px;
@@ -2495,6 +2505,251 @@ img {
   border-radius: 23px;
   color: #ffffff;
   background: var(--pink);
+  font-weight: 700;
+}
+
+.payment-status-page {
+  display: flex;
+  justify-content: center;
+  padding: 56px 0 80px;
+}
+
+.payment-status-card {
+  width: min(100%, 560px);
+  padding: 36px 32px 32px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(47, 51, 48, 0.06);
+  text-align: center;
+}
+
+.payment-status-card--success {
+  border-color: #cfe8df;
+  background: linear-gradient(180deg, #f7fcfa 0%, #ffffff 180px);
+}
+
+.payment-status-card--failed {
+  border-color: #f0c8c4;
+  background: linear-gradient(180deg, #fff7f6 0%, #ffffff 180px);
+}
+
+.payment-status-card--pending,
+.payment-status-card--processing {
+  border-color: #f1ddb8;
+  background: linear-gradient(180deg, #fffaf3 0%, #ffffff 180px);
+}
+
+.payment-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+}
+
+.payment-status-card--success .payment-status-icon {
+  color: var(--pink);
+  background: var(--pink-soft);
+}
+
+.payment-status-card--failed .payment-status-icon {
+  color: #b42318;
+  background: #fdeeed;
+}
+
+.payment-status-card--pending .payment-status-icon,
+.payment-status-card--processing .payment-status-icon {
+  color: var(--accent-warm);
+  background: var(--accent-soft);
+}
+
+.payment-status-icon svg {
+  width: 42px;
+  height: 42px;
+}
+
+.payment-status-spinner {
+  animation: payment-status-spin 0.9s linear infinite;
+}
+
+@keyframes payment-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.payment-status-copy {
+  margin-bottom: 24px;
+}
+
+.payment-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  margin-bottom: 14px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #f4f7f4;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.payment-status-card--success .payment-status-badge {
+  background: var(--pink-soft);
+  color: var(--pink);
+}
+
+.payment-status-card--failed .payment-status-badge {
+  background: #fdeeed;
+  color: #b42318;
+}
+
+.payment-status-card--pending .payment-status-badge,
+.payment-status-card--processing .payment-status-badge {
+  background: var(--accent-soft);
+  color: #9a6118;
+}
+
+.payment-status-card h1 {
+  margin: 0 0 12px;
+  font-size: clamp(28px, 4vw, 34px);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.payment-status-message {
+  margin: 0 auto;
+  max-width: 460px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.payment-status-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+  text-align: left;
+}
+
+.payment-status-summary div {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffdf9;
+}
+
+.payment-status-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.payment-status-summary strong {
+  color: var(--text);
+  font-size: 16px;
+  word-break: break-word;
+}
+
+.payment-status-tips {
+  margin: 0 0 22px;
+  padding: 16px 18px 16px 34px;
+  border-radius: 12px;
+  background: #fff8f7;
+  color: #6d4d49;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.payment-status-tips li + li {
+  margin-top: 8px;
+}
+
+.payment-status-error {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid #f0b8b2;
+  border-radius: 10px;
+  color: #9d2f28;
+  background: #fff0ee;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.payment-status-actions {
+  display: grid;
+  gap: 14px;
+}
+
+.payment-status-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 25px;
+  color: #ffffff;
+  background: var(--pink);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.payment-status-primary:disabled {
+  background: #9fb3a9;
+  cursor: not-allowed;
+}
+
+.payment-status-secondary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.payment-status-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 23px;
+  color: #ffffff;
+  background: var(--pink);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.payment-status-link--outline {
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: #ffffff;
+}
+
+.payment-status-help {
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.payment-status-help a {
+  color: var(--pink);
   font-weight: 700;
 }
 
@@ -2743,6 +2998,19 @@ img {
 }
 
 @media (max-width: 640px) {
+  .payment-status-page {
+    padding: 32px 0 56px;
+  }
+
+  .payment-status-card {
+    padding: 28px 20px 24px;
+  }
+
+  .payment-status-summary,
+  .payment-status-secondary {
+    grid-template-columns: 1fr;
+  }
+
   .top-marquee {
     font-size: 12px;
   }

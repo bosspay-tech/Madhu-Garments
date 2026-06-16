@@ -8,6 +8,7 @@ import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
 import { getSupabase } from "@/lib/supabase";
 import { createEasebuzzPaymentSession, savePaymentSession } from "@/lib/payment";
+import { lookupIndianPincode } from "@/lib/pincode";
 import { PRODUCT_STORE_ID } from "@/lib/store";
 
 const shipping = 0;
@@ -15,7 +16,6 @@ const shipping = 0;
 type ShippingDetails = {
   firstName: string;
   lastName: string;
-  company: string;
   street: string;
   city: string;
   state: string;
@@ -31,10 +31,11 @@ export function CheckoutClient() {
   const { configured, loading: authLoading, user } = useAuth();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeHint, setPincodeHint] = useState("");
   const [shippingDetails, setShippingDetails] = useState<ShippingDetails>({
     firstName: "",
     lastName: "",
-    company: "",
     street: "",
     city: "",
     state: "",
@@ -69,8 +70,58 @@ export function CheckoutClient() {
     }));
   }, [user]);
 
+  useEffect(() => {
+    const pincode = shippingDetails.pincode.replace(/\D/g, "");
+
+    if (pincode.length !== 6) {
+      setPincodeLoading(false);
+      setPincodeHint("");
+      return;
+    }
+
+    let alive = true;
+
+    const fetchLocation = async () => {
+      setPincodeLoading(true);
+      setPincodeHint("");
+
+      try {
+        const location = await lookupIndianPincode(pincode);
+        if (!alive) return;
+
+        if (location) {
+          setShippingDetails((current) => ({
+            ...current,
+            city: location.city,
+            state: location.state,
+          }));
+          setPincodeHint("");
+        } else {
+          setPincodeHint("Could not find city and state for this PIN code. Please enter them manually.");
+        }
+      } catch {
+        if (!alive) return;
+        setPincodeHint("Could not look up PIN code. Please enter city and state manually.");
+      } finally {
+        if (alive) {
+          setPincodeLoading(false);
+        }
+      }
+    };
+
+    fetchLocation();
+
+    return () => {
+      alive = false;
+    };
+  }, [shippingDetails.pincode]);
+
   const updateShippingDetail = (field: keyof ShippingDetails, value: string) => {
     setShippingDetails((current) => ({ ...current, [field]: value }));
+  };
+
+  const updatePincode = (value: string) => {
+    updateShippingDetail("pincode", value.replace(/\D/g, "").slice(0, 6));
   };
 
   const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
@@ -126,7 +177,6 @@ export function CheckoutClient() {
           pincode: shippingDetails.pincode,
         },
         extras: {
-          udf2: shippingDetails.company || undefined,
           udf3: shippingDetails.notes || undefined,
         },
       });
@@ -180,12 +230,21 @@ export function CheckoutClient() {
             <input required value={shippingDetails.lastName} onChange={(event) => updateShippingDetail("lastName", event.target.value)} />
           </label>
           <label className="wide">
-            Company name
-            <input value={shippingDetails.company} onChange={(event) => updateShippingDetail("company", event.target.value)} />
-          </label>
-          <label className="wide">
             Street address
             <input required value={shippingDetails.street} onChange={(event) => updateShippingDetail("street", event.target.value)} />
+          </label>
+          <label>
+            PIN code
+            <input
+              inputMode="numeric"
+              maxLength={6}
+              pattern="[0-9]{6}"
+              required
+              value={shippingDetails.pincode}
+              onChange={(event) => updatePincode(event.target.value)}
+            />
+            {pincodeLoading ? <span className="checkout-field-hint">Looking up city and state...</span> : null}
+            {!pincodeLoading && pincodeHint ? <span className="checkout-field-hint checkout-field-hint-error">{pincodeHint}</span> : null}
           </label>
           <label>
             Town / City
@@ -199,10 +258,6 @@ export function CheckoutClient() {
               value={shippingDetails.state}
               onChange={(event) => updateShippingDetail("state", event.target.value)}
             />
-          </label>
-          <label>
-            PIN code
-            <input inputMode="numeric" required value={shippingDetails.pincode} onChange={(event) => updateShippingDetail("pincode", event.target.value)} />
           </label>
           <label>
             Phone

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Clock3, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, LoaderCircle, XCircle } from "lucide-react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { getSupabase } from "@/lib/supabase";
 import { createEasebuzzPaymentSession, orderToCustomer, savePaymentSession } from "@/lib/payment";
@@ -23,12 +23,18 @@ type OrderRow = {
   customer_pincode?: string;
 };
 
+type PaymentStatus = "processing" | "success" | "failed" | "unknown";
+
+function shortOrderRef(value: string) {
+  return value.length > 12 ? `${value.slice(0, 12)}...` : value;
+}
+
 export function OrderSuccessClient() {
   const searchParams = useSearchParams();
   const { clearCart } = useCart();
   const handledRef = useRef(false);
 
-  const [status, setStatus] = useState<"processing" | "success" | "failed" | "unknown">("processing");
+  const [status, setStatus] = useState<PaymentStatus>("processing");
   const [txnId, setTxnId] = useState("");
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
@@ -71,7 +77,7 @@ export function OrderSuccessClient() {
 
         if (searchParams.get("status") === "failed") {
           setStatus("failed");
-          setMessage("Payment was not completed.");
+          setMessage("Your payment was cancelled or could not be completed.");
           return;
         }
 
@@ -85,7 +91,7 @@ export function OrderSuccessClient() {
 
         if (orderRow?.status === "failed") {
           setStatus("failed");
-          setMessage("Payment was not completed.");
+          setMessage("Your payment was cancelled or could not be completed.");
           return;
         }
 
@@ -119,7 +125,7 @@ export function OrderSuccessClient() {
           ) {
             await getSupabase().from("orders").update({ status: "failed" }).eq("transaction_id", collectRef);
             setStatus("failed");
-            setMessage("Payment was not completed.");
+            setMessage("Your payment was cancelled or could not be completed.");
             return;
           }
         }
@@ -173,54 +179,107 @@ export function OrderSuccessClient() {
 
   if (status === "processing") {
     return (
-      <section className="checkout-empty container">
-        <Clock3 />
-        <h1>Processing payment</h1>
-        <p>Please wait while we confirm your payment with Easebuzz.</p>
+      <section className="payment-status-page container">
+        <div className="payment-status-card payment-status-card--processing">
+          <div className="payment-status-icon" aria-hidden="true">
+            <LoaderCircle className="payment-status-spinner" />
+          </div>
+          <h1>Processing payment</h1>
+          <p className="payment-status-message">Please wait while we confirm your payment with Easebuzz.</p>
+        </div>
       </section>
     );
   }
 
   const isSuccess = status === "success";
   const isUnknown = status === "unknown";
+  const isFailed = status === "failed";
   const canRetry = !isSuccess && txnId && order;
+  const statusClass = isSuccess ? "success" : isUnknown ? "pending" : "failed";
+
+  const title = isSuccess
+    ? "Payment successful"
+    : isUnknown
+      ? "Payment status pending"
+      : "Payment failed";
+
+  const description = isSuccess
+    ? "Thank you. Your MADHU GARMENTS order has been placed successfully."
+    : isUnknown
+      ? "We received your payment response, but the final status is still being confirmed. This may take a few moments."
+      : message || "Something went wrong with your payment. You can try again safely.";
+
+  const StatusIcon = isSuccess ? CheckCircle2 : isUnknown ? Clock3 : XCircle;
 
   return (
-    <section className="checkout-empty container">
-      {isSuccess ? <CheckCircle2 /> : isUnknown ? <Clock3 /> : <XCircle />}
-      <h1>
-        {isSuccess ? "Payment successful" : isUnknown ? "Payment status pending" : "Payment failed"}
-      </h1>
-      <p>
-        {isSuccess
-          ? "Thank you. Your MADHU GARMENTS order has been placed successfully."
-          : isUnknown
-            ? "We received a payment response, but the final status could not be confirmed yet. It may take a few moments."
-            : message || "Something went wrong with your payment."}
-      </p>
+    <section className="payment-status-page container">
+      <div className={`payment-status-card payment-status-card--${statusClass}`}>
+        <div className="payment-status-icon" aria-hidden="true">
+          <StatusIcon />
+        </div>
 
-      {txnId ? (
-        <p>
-          Order ref: <strong>{txnId}</strong>
-        </p>
-      ) : null}
+        <div className="payment-status-copy">
+          <span className="payment-status-badge">
+            {isSuccess ? "Order confirmed" : isUnknown ? "Awaiting confirmation" : "Payment not completed"}
+          </span>
+          <h1>{title}</h1>
+          <p className="payment-status-message">{description}</p>
+        </div>
 
-      {amount ? (
-        <p>
-          Amount: <strong>{formatCartMoney(Number(amount))}</strong>
-        </p>
-      ) : null}
-
-      {retryError ? <div className="checkout-error">{retryError}</div> : null}
-
-      <div className="account-actions">
-        {canRetry ? (
-          <button className="place-order-button" disabled={retryLoading} onClick={handleRetryPayment} type="button">
-            {retryLoading ? "Redirecting..." : "Retry payment"}
-          </button>
+        {txnId || amount ? (
+          <div className="payment-status-summary">
+            {txnId ? (
+              <div>
+                <span>Order reference</span>
+                <strong title={txnId}>{shortOrderRef(txnId)}</strong>
+              </div>
+            ) : null}
+            {amount ? (
+              <div>
+                <span>Amount</span>
+                <strong>{formatCartMoney(Number(amount))}</strong>
+              </div>
+            ) : null}
+          </div>
         ) : null}
-        <Link href="/shop">Continue shopping</Link>
-        <Link href="/orders">View my orders</Link>
+
+        {isFailed ? (
+          <ul className="payment-status-tips">
+            <li>Your cart is still saved and no amount was charged.</li>
+            <li>You can retry payment using the same order reference.</li>
+            <li>If money was deducted, it will be reversed automatically by your bank.</li>
+          </ul>
+        ) : null}
+
+        {retryError ? <div className="payment-status-error">{retryError}</div> : null}
+
+        <div className="payment-status-actions">
+          {canRetry ? (
+            <button
+              className="payment-status-primary"
+              disabled={retryLoading}
+              onClick={handleRetryPayment}
+              type="button"
+            >
+              {retryLoading ? "Redirecting to payment..." : "Retry payment"}
+            </button>
+          ) : null}
+
+          <div className="payment-status-secondary">
+            <Link className="payment-status-link" href="/shop">
+              Continue shopping
+            </Link>
+            <Link className="payment-status-link payment-status-link--outline" href="/orders">
+              View my orders
+            </Link>
+          </div>
+        </div>
+
+        {!isSuccess ? (
+          <p className="payment-status-help">
+            Need help? <Link href="/contact">Contact support</Link>
+          </p>
+        ) : null}
       </div>
     </section>
   );
