@@ -223,7 +223,10 @@ export function resolveEasebuzzStatus(
   if (normalized === "success") return "success";
   // Only genuinely non-terminal states stay pending. Everything else —
   // `dropped` (customer inactivity / no bank response), `bounced`, `failure`,
-  // `userCancelled`, etc. — is treated as a terminal failure.
+  // `userCancelled`, etc. — is a TERMINAL FAILURE. Mapping unknown/terminal
+  // states to `pending` (the old default) left dropped txns stuck pending and
+  // polled forever; Easebuzz's retrieve API reports `dropped` for timed-out
+  // attempts (probe-confirmed 2026-06-15).
   if (
     normalized === "pending" ||
     normalized === "initiated" ||
