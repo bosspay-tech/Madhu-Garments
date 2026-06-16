@@ -219,17 +219,19 @@ export async function retrieveEasebuzzTransaction(
 export function resolveEasebuzzStatus(
   status?: string,
 ): "success" | "failed" | "pending" {
-  const normalized = (status || "").toLowerCase();
+  const normalized = (status || "").trim().toLowerCase();
   if (normalized === "success") return "success";
+  // Only genuinely non-terminal states stay pending. Everything else —
+  // `dropped` (customer inactivity / no bank response), `bounced`, `failure`,
+  // `userCancelled`, etc. — is treated as a terminal failure.
   if (
-    normalized === "failure" ||
-    normalized === "failed" ||
-    normalized === "usercancelled" ||
-    normalized === "cancelled"
+    normalized === "pending" ||
+    normalized === "initiated" ||
+    normalized === "in progress"
   ) {
-    return "failed";
+    return "pending";
   }
-  return "pending";
+  return "failed";
 }
 
 export function normalizeEasebuzzStatusResponse(
