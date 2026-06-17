@@ -1,6 +1,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
+# vendor/ holds the file: dependency @bosspay/bridge-node — must be present
+# before `npm ci` or the install fails to resolve it.
 COPY package.json package-lock.json ./
+COPY vendor/ vendor/
 RUN npm ci
 
 FROM node:20-alpine AS builder
