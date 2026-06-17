@@ -1,7 +1,7 @@
 import { getBridgeFetchHandler } from "@/lib/dpx-bridge";
 
-// DollerpayX bridge namespace: `/bosspay/v1/health`, `/collect`, `/status/:id`.
-// WordPress-style `/wp-json/bosspay/v1/*` is handled by `app/wp-json/bosspay/v1/[...path]/route.ts`.
+// DollerpayX's WordPress bridge adapter calls the bridge under `/wp-json/bosspay/v1/*`.
+// The package's web-fetch matcher accepts that prefix; this route exposes it in Next.js.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
