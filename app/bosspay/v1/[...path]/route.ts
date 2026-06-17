@@ -1,19 +1,12 @@
 import { getBridgeFetchHandler } from "@/lib/dpx-bridge";
 
-// The bridge verifies an HMAC signature over the raw body and must run on Node
-// (uses node:crypto + the Supabase client), never the Edge runtime.
+// DollerpayX's WordPress bridge adapter calls the bridge under the `/wp-json/`
+// prefix (e.g. `${base}/wp-json/bosspay/v1/health|collect|status/:id`).
+// The package's web-fetch matcher already accepts that prefix; this route just
+// exposes the path so Next.js dispatches it to the same handler as `/bosspay/v1/*`.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * Catch-all for the DollerpayX bridge namespace:
- *   GET  /bosspay/v1/health
- *   GET  /bosspay/v1/status/:pgTxnId
- *   POST /bosspay/v1/collect
- *
- * `createWebFetchHandler` matches the route by pathname suffix and verifies the
- * signature, so we just forward the raw Request and return its Response.
- */
 async function handle(req: Request): Promise<Response> {
   return getBridgeFetchHandler()(req);
 }
