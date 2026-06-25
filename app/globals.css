@@ -2472,6 +2472,74 @@ img {
   font-weight: 600;
 }
 
+.checkout-promo {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.checkout-promo > strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #222222;
+  font-size: 14px;
+}
+
+.checkout-promo-row {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 10px;
+}
+
+.checkout-promo-row input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.checkout-promo-row button {
+  height: 42px;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  background: var(--pink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.checkout-promo-row button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.checkout-promo-applied {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkout-promo-applied strong {
+  color: #222222;
+}
+
+.checkout-promo-applied button {
+  margin-left: 10px;
+  border: 0;
+  color: var(--pink);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.checkout-promo-error {
+  margin: 10px 0 0;
+  color: #c0392b;
+  font-size: 13px;
+}
+
 .order-line {
   grid-template-columns: 78px 1fr;
 }

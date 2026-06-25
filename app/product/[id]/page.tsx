@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/product-card";
 import { ProductDetailActions } from "@/components/product-detail-actions";
-import { GLOBAL_OFFER_RUPEES_OFF, getProductOriginalUnitPrice, getProductById, getProductUnitPrice, getRelatedProducts } from "@/lib/products";
+import { getProductById, getProductUnitPrice, getRelatedProducts } from "@/lib/products";
 
 type ProductPageProps = {
   params: Promise<{ id: string }>;
@@ -46,7 +46,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     .map((tag) => tag.replace(/\\/g, "").trim())
     .filter(Boolean);
   const unitPrice = getProductUnitPrice(product);
-  const originalUnitPrice = getProductOriginalUnitPrice(product);
+  const hasSalePrice = Boolean(product.regularPrice && product.salePrice && product.salePrice < product.regularPrice);
   const stockLabel = product.stock ? `${product.stock} in stock` : "In stock";
   const productDescription = buildProductDescription(product, categories);
   const informationRows = buildInformationRows(product, categories, stockLabel);
@@ -72,9 +72,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <div className="product-summary">
             <h1>{product.name}</h1>
             <p className="product-detail-price">
-              {originalUnitPrice > unitPrice ? <del>{formatMoney(originalUnitPrice)}</del> : null}
+              {hasSalePrice ? <del>{formatMoney(product.regularPrice ?? 0)}</del> : null}
               <span>{product.priceLabel}</span>
-              <span className="offer-pill">₹{GLOBAL_OFFER_RUPEES_OFF} OFF</span>
             </p>
             <p className="product-copy">
               {summaryDescription ||
@@ -91,7 +90,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 image: product.image,
                 priceLabel: product.priceLabel,
                 unitPrice,
-                originalUnitPrice,
               }}
             />
             <div className="product-meta">

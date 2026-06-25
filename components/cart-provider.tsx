@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { GLOBAL_OFFER_RUPEES_OFF } from "@/lib/products";
 
 export type CartProduct = {
   id: string;
@@ -9,8 +8,6 @@ export type CartProduct = {
   image: string;
   priceLabel: string;
   unitPrice: number;
-  originalUnitPrice?: number;
-  offerApplied?: boolean;
 };
 
 export type CartItem = CartProduct & {
@@ -33,23 +30,6 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | null>(null);
 const storageKey = "madhu-garments-cart";
 
-function applyOfferToCartItem(item: CartItem): CartItem {
-  if (item.offerApplied) return item;
-  const originalUnitPrice = item.originalUnitPrice ?? item.unitPrice;
-  if (!Number.isFinite(item.unitPrice) || item.unitPrice <= 0) {
-    return { ...item, originalUnitPrice, offerApplied: true };
-  }
-
-  const nextUnitPrice = Math.max(0, item.unitPrice - GLOBAL_OFFER_RUPEES_OFF);
-  return {
-    ...item,
-    originalUnitPrice,
-    unitPrice: nextUnitPrice,
-    priceLabel: formatCartMoney(nextUnitPrice),
-    offerApplied: true,
-  };
-}
-
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -60,8 +40,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const stored = window.localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored) as CartItem[];
-        const migrated = Array.isArray(parsed) ? parsed.map((item) => applyOfferToCartItem(item)) : [];
-        setItems(migrated);
+        setItems(Array.isArray(parsed) ? parsed : []);
       }
     } catch {
       setItems([]);
@@ -87,7 +66,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           );
         }
 
-        return [...current, { ...product, quantity, offerApplied: true }];
+        return [...current, { ...product, quantity }];
       });
       setCartOpen(true);
     };

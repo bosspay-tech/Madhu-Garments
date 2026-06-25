@@ -10,7 +10,6 @@ import { getSupabase } from "@/lib/supabase";
 import { createEasebuzzPaymentSession, savePaymentSession } from "@/lib/payment";
 import { lookupIndianPincode } from "@/lib/pincode";
 import { PRODUCT_STORE_ID } from "@/lib/store";
-import { GLOBAL_OFFER_RUPEES_OFF } from "@/lib/products";
 
 const shipping = 0;
 
@@ -46,8 +45,14 @@ export function CheckoutClient() {
     notes: "",
   });
 
-  const total = subtotal + shipping;
-  const offerTotal = items.reduce((totalAmount, item) => totalAmount + GLOBAL_OFFER_RUPEES_OFF * item.quantity, 0);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, setPromoApplied] = useState<null | { code: string; discount: number }>(null);
+  const [promoError, setPromoError] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  const promoDiscount = promoApplied?.discount ?? 0;
+  const totalBeforeShipping = Math.max(0, subtotal - promoDiscount);
+  const total = totalBeforeShipping + shipping;
 
   useEffect(() => {
     if (!configured || authLoading || user) return;
@@ -280,13 +285,9 @@ export function CheckoutClient() {
               <img src={item.image} alt={item.name} />
               <div>
                 <strong>{item.name}</strong>
-                  <span className="checkout-line-price">
-                    {item.originalUnitPrice && item.originalUnitPrice > item.unitPrice ? (
-                      <del>{formatCartMoney(item.originalUnitPrice * item.quantity)}</del>
-                    ) : null}
-                    <strong>{formatCartMoney(item.unitPrice * item.quantity)}</strong>
-                    <span className="offer-pill">₹{GLOBAL_OFFER_RUPEES_OFF} OFF</span>
-                  </span>
+                <span className="checkout-line-price">
+                  <strong>{formatCartMoney(item.unitPrice * item.quantity)}</strong>
+                </span>
                 <div className="cart-line-controls">
                   <button
                     aria-label={`Decrease ${item.name} quantity`}
@@ -315,10 +316,72 @@ export function CheckoutClient() {
           <span>Subtotal</span>
           <strong>{formatCartMoney(subtotal)}</strong>
         </div>
-        <div className="order-total-row">
-          <span>Offer discount</span>
-          <strong>-{formatCartMoney(offerTotal)}</strong>
+        <div className="checkout-promo">
+          <strong>Promo code</strong>
+          <div className="checkout-promo-row">
+            <input
+              placeholder="Enter promo code"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              type="text"
+            />
+            <button
+              type="button"
+              disabled={promoLoading || !promoCode.trim()}
+              onClick={async () => {
+                setPromoError("");
+                setPromoLoading(true);
+                try {
+                  const response = await fetch("/api/promo/apply", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      code: promoCode.trim(),
+                      subtotal,
+                    }),
+                  });
+                  const json = (await response.json()) as { success: boolean; discount?: number; error?: string };
+                  if (!response.ok || !json.success || !json.discount) {
+                    setPromoApplied(null);
+                    setPromoError(json.error || "Invalid promo code.");
+                  } else {
+                    setPromoApplied({ code: promoCode.trim().toUpperCase(), discount: json.discount });
+                    setPromoError("");
+                  }
+                } catch (err) {
+                  setPromoApplied(null);
+                  setPromoError(err instanceof Error ? err.message : "Failed to apply promo code.");
+                } finally {
+                  setPromoLoading(false);
+                }
+              }}
+            >
+              {promoLoading ? "Applying..." : "Apply"}
+            </button>
+          </div>
+          {promoApplied ? (
+            <p className="checkout-promo-applied">
+              Applied <strong>{promoApplied.code}</strong> (-{formatCartMoney(promoApplied.discount)})
+              <button
+                type="button"
+                onClick={() => {
+                  setPromoApplied(null);
+                  setPromoCode("");
+                  setPromoError("");
+                }}
+              >
+                Remove
+              </button>
+            </p>
+          ) : null}
+          {promoError ? <p className="checkout-promo-error">{promoError}</p> : null}
         </div>
+        {promoDiscount > 0 ? (
+          <div className="order-total-row">
+            <span>Promo discount</span>
+            <strong>-{formatCartMoney(promoDiscount)}</strong>
+          </div>
+        ) : null}
         <div className="order-total-row">
           <span>Shipping</span>
           <strong>Free across India</strong>
