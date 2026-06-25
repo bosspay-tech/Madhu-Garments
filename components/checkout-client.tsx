@@ -167,14 +167,8 @@ export function CheckoutClient() {
       const payment = await createEasebuzzPaymentSession({
         collectRef,
         amount: total,
-        customer: {
-          name: customerName,
-          email: shippingDetails.email,
-          phone: shippingDetails.phone,
-        },
-        extras: {
-          udf3: shippingDetails.notes || undefined,
-        },
+        email: shippingDetails.email,
+        phone: shippingDetails.phone,
       });
 
       if (!payment.success || !payment.checkoutUrl) {

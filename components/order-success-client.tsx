@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Clock3, LoaderCircle, XCircle } from "lucide-react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { getSupabase } from "@/lib/supabase";
-import { createEasebuzzPaymentSession, orderToCustomer, savePaymentSession } from "@/lib/payment";
+import { createEasebuzzPaymentSession, savePaymentSession } from "@/lib/payment";
 import { updateOrderStatus } from "@/lib/orders";
 
 const ORDER_SELECT =
@@ -148,9 +148,10 @@ export function OrderSuccessClient() {
       return;
     }
 
-    const customer = orderToCustomer(order);
-    if (!customer.email || !customer.phone || !customer.name) {
-      setRetryError("Missing customer details on this order.");
+    const customerEmail = order.customer_email?.trim() || "";
+    const customerPhone = order.customer_phone?.trim() || "";
+    if (!customerEmail || !customerPhone) {
+      setRetryError("Missing customer email or phone on this order.");
       return;
     }
 
@@ -163,7 +164,8 @@ export function OrderSuccessClient() {
       const data = await createEasebuzzPaymentSession({
         collectRef: txnId,
         amount: Number(order.total || amount || 0),
-        customer,
+        email: customerEmail,
+        phone: customerPhone,
       });
 
       if (!data.success || !data.checkoutUrl) {
