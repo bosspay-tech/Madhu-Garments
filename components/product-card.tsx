@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Heart, ShoppingBag } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
+import { ProductShareButton } from "@/components/product-share-button";
 import type { Product } from "@/lib/products";
 
 type ProductCardProps = {
@@ -16,10 +17,13 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <article className="product-card">
-      <Link className="product-image" href={`/product/${product.id}`}>
-        {product.discount ? <span className="sale-badge">-{product.discount}%</span> : null}
-        <img src={product.image} alt={product.name} loading="lazy" />
-      </Link>
+      <div className="product-image-wrap">
+        <Link className="product-image" href={`/product/${product.id}`}>
+          {product.discount ? <span className="sale-badge">-{product.discount}%</span> : null}
+          <img src={product.image} alt={product.name} loading="lazy" />
+        </Link>
+        <ProductShareButton productId={product.id} productName={product.name} variant="icon" />
+      </div>
       <h3>
         <Link href={`/product/${product.id}`}>{product.name}</Link>
       </h3>

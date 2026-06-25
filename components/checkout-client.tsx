@@ -171,10 +171,6 @@ export function CheckoutClient() {
           name: customerName,
           email: shippingDetails.email,
           phone: shippingDetails.phone,
-          address: shippingDetails.street,
-          city: shippingDetails.city,
-          state: shippingDetails.state,
-          pincode: shippingDetails.pincode,
         },
         extras: {
           udf3: shippingDetails.notes || undefined,

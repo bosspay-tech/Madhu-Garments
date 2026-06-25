@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Heart, Minus, Plus } from "lucide-react";
 import { type CartProduct, useCart } from "@/components/cart-provider";
+import { ProductShareButton } from "@/components/product-share-button";
 
 type ProductDetailActionsProps = {
   product: CartProduct;
@@ -36,10 +37,13 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
           Add to Cart
         </button>
       </div>
-      <button className="product-wishlist-link" type="button">
-        <Heart size={18} />
-        Add to Wishlist
-      </button>
+      <div className="product-secondary-actions">
+        <button className="product-soft-action" type="button">
+          <Heart size={17} strokeWidth={2} />
+          <span>Add to Wishlist</span>
+        </button>
+        <ProductShareButton productId={product.id} productName={product.name} />
+      </div>
     </>
   );
 }

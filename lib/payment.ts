@@ -2,10 +2,6 @@ export type PaymentCustomer = {
   name: string;
   email: string;
   phone: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
 };
 
 export type EasebuzzPaymentExtras = {
@@ -56,12 +52,6 @@ export async function createEasebuzzPaymentSession({
       user_ref: customer.phone,
       txn_note: extras?.txn_note ?? `Order ${collectRef}`,
       productinfo: extras?.productinfo ?? `MADHU GARMENTS order ${collectRef}`,
-      address1: customer.address,
-      address2: extras?.address2,
-      city: customer.city,
-      state: customer.state,
-      zipcode: customer.pincode,
-      country: extras?.country ?? "India",
       udf1: extras?.udf1,
       udf2: extras?.udf2,
       udf3: extras?.udf3,
@@ -95,18 +85,10 @@ export function orderToCustomer(order: {
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string;
-  customer_address?: string;
-  customer_city?: string;
-  customer_state?: string;
-  customer_pincode?: string;
 }): PaymentCustomer {
   return {
     name: order.customer_name || "",
     email: order.customer_email || "",
     phone: order.customer_phone || "",
-    address: order.customer_address || "",
-    city: order.customer_city || "",
-    state: order.customer_state || "",
-    pincode: order.customer_pincode || "",
   };
 }
