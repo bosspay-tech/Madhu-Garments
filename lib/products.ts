@@ -16,6 +16,8 @@ export type Product = {
   stock: number | null;
   tags: string;
   brand: string;
+  originalRegularPrice: number | null;
+  originalSalePrice: number | null;
   regularPrice: number | null;
   salePrice: number | null;
   priceLabel: string;
@@ -36,6 +38,8 @@ export type FilterCount = {
 type ProductRow = Record<string, unknown>;
 
 let cache: Product[] | null = null;
+
+export const GLOBAL_OFFER_RUPEES_OFF = 99;
 
 export async function getProducts(): Promise<Product[]> {
   if (cache) {
@@ -210,11 +214,22 @@ export function getProductUnitPrice(product: Product): number {
   return product.salePrice ?? product.regularPrice ?? 0;
 }
 
+export function getProductOriginalUnitPrice(product: Product): number {
+  return product.originalSalePrice ?? product.originalRegularPrice ?? 0;
+}
+
+export function productFromRow(row: Record<string, unknown>): Product | null {
+  return toProduct(row);
+}
+
 function toProduct(row: ProductRow): Product | null {
   const basePrice = toNumber(row.base_price);
   const mrp = toNumber(row.mrp);
-  const salePrice = mrp && basePrice && basePrice < mrp ? basePrice : null;
-  const regularPrice = mrp ?? basePrice;
+  const rawSalePrice = mrp && basePrice && basePrice < mrp ? basePrice : null;
+  const rawRegularPrice = mrp ?? basePrice;
+
+  const regularPrice = applyGlobalOffer(rawRegularPrice);
+  const salePrice = applyGlobalOffer(rawSalePrice);
   const discount =
     regularPrice && salePrice && salePrice < regularPrice
       ? Math.round(((regularPrice - salePrice) / regularPrice) * 100)
@@ -233,6 +248,8 @@ function toProduct(row: ProductRow): Product | null {
     stock: toNumber(row.stock),
     tags: toString(row.tags),
     brand: toString(row.brand),
+    originalRegularPrice: rawRegularPrice,
+    originalSalePrice: rawSalePrice,
     regularPrice,
     salePrice,
     priceLabel: formatPrice(regularPrice, salePrice),
@@ -297,6 +314,12 @@ function formatPrice(regular: number | null, sale: number | null) {
   }
 
   return money(0);
+}
+
+function applyGlobalOffer(value: number | null) {
+  if (value == null) return null;
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.max(0, value - GLOBAL_OFFER_RUPEES_OFF);
 }
 
 function getProductCategoryParts(product: Product) {

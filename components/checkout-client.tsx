@@ -10,6 +10,7 @@ import { getSupabase } from "@/lib/supabase";
 import { createEasebuzzPaymentSession, savePaymentSession } from "@/lib/payment";
 import { lookupIndianPincode } from "@/lib/pincode";
 import { PRODUCT_STORE_ID } from "@/lib/store";
+import { GLOBAL_OFFER_RUPEES_OFF } from "@/lib/products";
 
 const shipping = 0;
 
@@ -46,6 +47,7 @@ export function CheckoutClient() {
   });
 
   const total = subtotal + shipping;
+  const offerTotal = items.reduce((totalAmount, item) => totalAmount + GLOBAL_OFFER_RUPEES_OFF * item.quantity, 0);
 
   useEffect(() => {
     if (!configured || authLoading || user) return;
@@ -278,7 +280,13 @@ export function CheckoutClient() {
               <img src={item.image} alt={item.name} />
               <div>
                 <strong>{item.name}</strong>
-                <span>{formatCartMoney(item.unitPrice * item.quantity)}</span>
+                  <span className="checkout-line-price">
+                    {item.originalUnitPrice && item.originalUnitPrice > item.unitPrice ? (
+                      <del>{formatCartMoney(item.originalUnitPrice * item.quantity)}</del>
+                    ) : null}
+                    <strong>{formatCartMoney(item.unitPrice * item.quantity)}</strong>
+                    <span className="offer-pill">₹{GLOBAL_OFFER_RUPEES_OFF} OFF</span>
+                  </span>
                 <div className="cart-line-controls">
                   <button
                     aria-label={`Decrease ${item.name} quantity`}
@@ -306,6 +314,10 @@ export function CheckoutClient() {
         <div className="order-total-row">
           <span>Subtotal</span>
           <strong>{formatCartMoney(subtotal)}</strong>
+        </div>
+        <div className="order-total-row">
+          <span>Offer discount</span>
+          <strong>-{formatCartMoney(offerTotal)}</strong>
         </div>
         <div className="order-total-row">
           <span>Shipping</span>

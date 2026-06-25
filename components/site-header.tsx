@@ -7,6 +7,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
 import { signOut } from "@/lib/auth-service";
+import { GLOBAL_OFFER_RUPEES_OFF } from "@/lib/products";
 
 const links = [
   { href: "/", label: "Home" },
@@ -26,6 +27,10 @@ export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { cartOpen, closeCart, itemCount, items, openCart, subtotal, updateQuantity } = useCart();
+  const offerTotal = useMemo(
+    () => items.reduce((total, item) => total + GLOBAL_OFFER_RUPEES_OFF * item.quantity, 0),
+    [items],
+  );
   const { user } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -258,12 +263,19 @@ export function SiteHeader() {
                         </div>
                       </div>
                       <strong className="cart-line-total">{formatCartMoney(item.unitPrice * item.quantity)}</strong>
+                      {item.originalUnitPrice && item.originalUnitPrice > item.unitPrice ? (
+                        <del className="cart-line-original">{formatCartMoney(item.originalUnitPrice * item.quantity)}</del>
+                      ) : null}
                     </div>
                   ))}
                 </div>
                 <div className="cart-subtotal">
                   <span>Subtotal</span>
                   <strong>{formatCartMoney(subtotal)}</strong>
+                </div>
+                <div className="cart-subtotal">
+                  <span>Offer discount</span>
+                  <strong>-{formatCartMoney(offerTotal)}</strong>
                 </div>
                 <Link className="cart-view-link" href="/cart" onClick={closeCart}>
                   View Cart

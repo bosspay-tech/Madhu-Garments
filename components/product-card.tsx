@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Heart, ShoppingBag } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
 import { ProductShareButton } from "@/components/product-share-button";
-import type { Product } from "@/lib/products";
+import { GLOBAL_OFFER_RUPEES_OFF, getProductOriginalUnitPrice, getProductUnitPrice, type Product } from "@/lib/products";
 
 type ProductCardProps = {
   product: Product;
@@ -12,7 +12,8 @@ type ProductCardProps = {
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
-  const unitPrice = product.salePrice ?? product.regularPrice ?? 0;
+  const unitPrice = getProductUnitPrice(product);
+  const originalUnitPrice = getProductOriginalUnitPrice(product);
   const hasSalePrice = Boolean(product.regularPrice && product.salePrice && product.salePrice < product.regularPrice);
 
   return (
@@ -28,8 +29,9 @@ export function ProductCard({ product }: ProductCardProps) {
         <Link href={`/product/${product.id}`}>{product.name}</Link>
       </h3>
       <p className="price">
-        {hasSalePrice ? <del>{formatMoney(product.regularPrice ?? 0)}</del> : null}
+        {originalUnitPrice > unitPrice ? <del>{formatMoney(originalUnitPrice)}</del> : null}
         <span>{product.priceLabel}</span>
+        <span className="offer-pill">₹{GLOBAL_OFFER_RUPEES_OFF} OFF</span>
       </p>
       <button
         className="add-cart-button"
@@ -40,6 +42,7 @@ export function ProductCard({ product }: ProductCardProps) {
             image: product.image,
             priceLabel: product.priceLabel,
             unitPrice,
+            originalUnitPrice,
           })
         }
         type="button"
