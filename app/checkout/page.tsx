@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { CheckoutClient } from "@/components/checkout-client";
 
 export const metadata = {
@@ -7,7 +8,15 @@ export const metadata = {
 export default function CheckoutPage() {
   return (
     <main>
-      <CheckoutClient />
+      <Suspense
+        fallback={
+          <section className="checkout-empty container">
+            <h1>Loading checkout...</h1>
+          </section>
+        }
+      >
+        <CheckoutClient />
+      </Suspense>
     </main>
   );
 }

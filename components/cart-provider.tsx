@@ -19,7 +19,7 @@ type CartContextValue = {
   itemCount: number;
   cartOpen: boolean;
   subtotal: number;
-  addItem: (product: CartProduct, quantity?: number) => void;
+  addItem: (product: CartProduct, quantity?: number, openCart?: boolean) => void;
   closeCart: () => void;
   updateQuantity: (id: string, quantity: number) => void;
   openCart: () => void;
@@ -56,7 +56,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items, loaded]);
 
   const value = useMemo<CartContextValue>(() => {
-    const addItem = (product: CartProduct, quantity = 1) => {
+    const addItem = (product: CartProduct, quantity = 1, openCart = true) => {
       setItems((current) => {
         const existing = current.find((item) => item.id === product.id);
 
@@ -68,7 +68,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
         return [...current, { ...product, quantity }];
       });
-      setCartOpen(true);
+      if (openCart) {
+        setCartOpen(true);
+      }
     };
 
     const openCart = () => {

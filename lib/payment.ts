@@ -3,11 +3,19 @@ export async function createEasebuzzPaymentSession({
   amount,
   email,
   phone,
+  address,
 }: {
   collectRef: string;
   amount: number;
   email: string;
   phone: string;
+  address?: {
+    name: string;
+    street: string;
+    city: string;
+    state: string;
+    pincode: string;
+  };
 }) {
   const response = await fetch("/api/easebuzz/create-payment", {
     method: "POST",
@@ -17,6 +25,16 @@ export async function createEasebuzzPaymentSession({
       collect_ref: collectRef,
       email,
       phone,
+      ...(address
+        ? {
+            display_name: address.name,
+            address1: address.street,
+            city: address.city,
+            state: address.state,
+            zipcode: address.pincode,
+            country: "India",
+          }
+        : {}),
     }),
   });
 

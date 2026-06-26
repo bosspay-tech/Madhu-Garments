@@ -1,14 +1,15 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Copy, Link2, Minus, Plus, Share2, Trash2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Minus, Plus, Trash2 } from "lucide-react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
 import { getSupabase } from "@/lib/supabase";
 import { createEasebuzzPaymentSession, savePaymentSession } from "@/lib/payment";
 import { lookupIndianPincode } from "@/lib/pincode";
+import { isShareProductLoaded, markShareProductLoaded } from "@/lib/share-checkout";
 import { PRODUCT_STORE_ID } from "@/lib/store";
 
 const shipping = 0;
@@ -27,12 +28,19 @@ type ShippingDetails = {
 
 export function CheckoutClient() {
   const router = useRouter();
-  const { items, removeItem, subtotal, updateQuantity } = useCart();
+  const searchParams = useSearchParams();
+  const shareProductId = searchParams.get("product");
+  const isShareCheckout = searchParams.get("share") === "1" && Boolean(shareProductId);
+  const { items, removeItem, subtotal, updateQuantity, addItem, clearCart, closeCart } = useCart();
   const { configured, loading: authLoading, user } = useAuth();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeHint, setPincodeHint] = useState("");
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState("");
+  const shareFetchRef = useRef<string | null>(null);
+  const sharePromoAppliedRef = useRef(false);
   const [shippingDetails, setShippingDetails] = useState<ShippingDetails>({
     firstName: "",
     lastName: "",
@@ -49,19 +57,143 @@ export function CheckoutClient() {
   const [promoApplied, setPromoApplied] = useState<null | { code: string; discount: number }>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
-  const [paymentUrl, setPaymentUrl] = useState("");
-  const [paymentUrlLoading, setPaymentUrlLoading] = useState(false);
-  const [paymentUrlMessage, setPaymentUrlMessage] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const promoDiscount = promoApplied?.discount ?? 0;
   const totalBeforeShipping = Math.max(0, subtotal - promoDiscount);
   const total = totalBeforeShipping + shipping;
 
   useEffect(() => {
-    if (!configured || authLoading || user) return;
-    router.replace("/login");
-  }, [authLoading, configured, router, user]);
+    if (!configured || authLoading || user || shareLoading) return;
+    const next = `${window.location.pathname}${window.location.search}`;
+    router.replace(`/login?next=${encodeURIComponent(next)}`);
+  }, [authLoading, configured, router, shareLoading, user]);
+
+  useEffect(() => {
+    if (!isShareCheckout) return;
+    closeCart();
+  }, [closeCart, isShareCheckout]);
+
+  useEffect(() => {
+    if (!isShareCheckout || !shareProductId) {
+      setShareLoading(false);
+      return;
+    }
+
+    if (isShareProductLoaded(shareProductId)) {
+      setShareLoading(false);
+      return;
+    }
+
+    if (shareFetchRef.current === shareProductId) {
+      return;
+    }
+
+    shareFetchRef.current = shareProductId;
+
+    let cancelled = false;
+
+    const loadSharedProduct = async () => {
+      setShareLoading(true);
+      setShareError("");
+
+      try {
+        const response = await fetch(`/api/products/${encodeURIComponent(shareProductId)}`);
+        const json = (await response.json()) as {
+          success: boolean;
+          product?: { id: string; name: string; image: string; priceLabel: string; unitPrice: number };
+          error?: string;
+        };
+
+        if (cancelled) return;
+
+        if (!response.ok || !json.success || !json.product) {
+          setShareError(json.error || "Product not found.");
+          return;
+        }
+
+        clearCart();
+        addItem(json.product, 1, false);
+        markShareProductLoaded(shareProductId);
+      } catch (loadError) {
+        if (cancelled) return;
+        setShareError(loadError instanceof Error ? loadError.message : "Failed to load shared product.");
+      } finally {
+        shareFetchRef.current = null;
+        setShareLoading(false);
+      }
+    };
+
+    void loadSharedProduct();
+
+    return () => {
+      cancelled = true;
+      shareFetchRef.current = null;
+    };
+  }, [addItem, clearCart, closeCart, isShareCheckout, shareProductId]);
+
+  useEffect(() => {
+    if (isShareCheckout) return;
+    sharePromoAppliedRef.current = false;
+    setPromoApplied(null);
+    setPromoCode("");
+    setPromoError("");
+  }, [isShareCheckout]);
+
+  useEffect(() => {
+    if (!isShareCheckout || !items.length || sharePromoAppliedRef.current) return;
+
+    let alive = true;
+
+    const applySharePromo = async () => {
+      setPromoLoading(true);
+      setPromoError("");
+
+      try {
+        const response = await fetch("/api/promo/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subtotal,
+            autoApply: true,
+            shareCheckout: true,
+          }),
+        });
+        const json = (await response.json()) as {
+          success: boolean;
+          discount?: number;
+          code?: string;
+          error?: string;
+        };
+
+        if (!alive) return;
+
+        if (!response.ok || !json.success || !json.discount) {
+          setPromoApplied(null);
+          setPromoError(json.error || "Could not apply promo code automatically.");
+          return;
+        }
+
+        sharePromoAppliedRef.current = true;
+        const appliedCode = json.code || "PROMO";
+        setPromoCode(appliedCode);
+        setPromoApplied({ code: appliedCode, discount: json.discount });
+      } catch (promoApplyError) {
+        if (!alive) return;
+        setPromoApplied(null);
+        setPromoError(promoApplyError instanceof Error ? promoApplyError.message : "Failed to apply promo code.");
+      } finally {
+        if (alive) {
+          setPromoLoading(false);
+        }
+      }
+    };
+
+    void applySharePromo();
+
+    return () => {
+      alive = false;
+    };
+  }, [isShareCheckout, items.length, subtotal]);
 
   useEffect(() => {
     if (!user) return;
@@ -80,45 +212,6 @@ export function CheckoutClient() {
       phone: current.phone || phone,
     }));
   }, [user]);
-
-  useEffect(() => {
-    if (authLoading || !user) {
-      setIsAdmin(false);
-      return;
-    }
-
-    let alive = true;
-
-    const checkAdmin = async () => {
-      try {
-        const {
-          data: { session },
-        } = await getSupabase().auth.getSession();
-
-        if (!session?.access_token) {
-          if (alive) setIsAdmin(false);
-          return;
-        }
-
-        const response = await fetch("/api/admin/check", {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        const result = (await response.json()) as { isAdmin?: boolean };
-
-        if (alive) {
-          setIsAdmin(Boolean(result.isAdmin));
-        }
-      } catch {
-        if (alive) setIsAdmin(false);
-      }
-    };
-
-    checkAdmin();
-
-    return () => {
-      alive = false;
-    };
-  }, [authLoading, user]);
 
   useEffect(() => {
     const pincode = shippingDetails.pincode.replace(/\D/g, "");
@@ -174,167 +267,95 @@ export function CheckoutClient() {
     updateShippingDetail("pincode", value.replace(/\D/g, "").slice(0, 6));
   };
 
-  useEffect(() => {
-    setPaymentUrl("");
-    setPaymentUrlMessage("");
-  }, [items, promoApplied, total]);
+  const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
 
-  const startCheckoutPayment = async () => {
     if (!configured) {
       setError("Supabase is not configured. Please add Supabase environment variables before placing orders.");
-      return null;
+      return;
     }
 
     if (!user) {
       router.replace("/login");
-      return null;
+      return;
     }
-
-    const customerName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
-    const collectRef = `ORD${Date.now()}`;
-
-    const { error: insertError } = await getSupabase().from("orders").insert({
-      store_id: PRODUCT_STORE_ID,
-      user_id: user.id,
-      items,
-      total,
-      transaction_id: collectRef,
-      status: "pending",
-      customer_name: customerName,
-      customer_email: shippingDetails.email,
-      customer_phone: shippingDetails.phone,
-      customer_address: shippingDetails.street,
-      customer_city: shippingDetails.city,
-      customer_state: shippingDetails.state,
-      customer_pincode: shippingDetails.pincode,
-    });
-
-    if (insertError) {
-      setError(insertError.message || "Failed to place order.");
-      return null;
-    }
-
-    const payment = await createEasebuzzPaymentSession({
-      collectRef,
-      amount: total,
-      email: shippingDetails.email,
-      phone: shippingDetails.phone,
-    });
-
-    if (!payment.success || !payment.checkoutUrl) {
-      await getSupabase().from("orders").update({ status: "failed" }).eq("transaction_id", collectRef);
-      setError(payment.error || "Failed to start payment. Please try again.");
-      return null;
-    }
-
-    savePaymentSession(collectRef);
-    return payment.checkoutUrl as string;
-  };
-
-  const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
-    setPaymentUrlMessage("");
 
     setPlacing(true);
     try {
-      const checkoutUrl = await startCheckoutPayment();
-      if (!checkoutUrl) return;
+      const customerName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
+      const collectRef = `ORD${Date.now()}`;
 
-      window.location.href = checkoutUrl;
+      const { error: insertError } = await getSupabase().from("orders").insert({
+        store_id: PRODUCT_STORE_ID,
+        user_id: user.id,
+        items,
+        total,
+        transaction_id: collectRef,
+        status: "pending",
+        customer_name: customerName,
+        customer_email: shippingDetails.email,
+        customer_phone: shippingDetails.phone,
+        customer_address: shippingDetails.street,
+        customer_city: shippingDetails.city,
+        customer_state: shippingDetails.state,
+        customer_pincode: shippingDetails.pincode,
+      });
+
+      if (insertError) {
+        setError(insertError.message || "Failed to place order.");
+        return;
+      }
+
+      const payment = await createEasebuzzPaymentSession({
+        collectRef,
+        amount: total,
+        email: shippingDetails.email,
+        phone: shippingDetails.phone,
+        ...(isShareCheckout
+          ? {}
+          : {
+              address: {
+                name: customerName,
+                street: shippingDetails.street,
+                city: shippingDetails.city,
+                state: shippingDetails.state,
+                pincode: shippingDetails.pincode,
+              },
+            }),
+      });
+
+      if (!payment.success || !payment.checkoutUrl) {
+        await getSupabase().from("orders").update({ status: "failed" }).eq("transaction_id", collectRef);
+        setError(payment.error || "Failed to start payment. Please try again.");
+        return;
+      }
+
+      savePaymentSession(collectRef);
+      window.location.href = payment.checkoutUrl;
     } finally {
       setPlacing(false);
     }
   };
 
-  const handleSharePaymentUrl = async () => {
-    if (!isAdmin) return;
+  if (shareLoading) {
+    return (
+      <section className="checkout-empty container">
+        <h1>Loading your order...</h1>
+        <p>Setting up checkout from the shared product link.</p>
+      </section>
+    );
+  }
 
-    setError("");
-    setPaymentUrlMessage("");
-    setPaymentUrlLoading(true);
-
-    try {
-      const {
-        data: { session },
-      } = await getSupabase().auth.getSession();
-
-      if (!session?.access_token) {
-        router.replace("/login");
-        return;
-      }
-
-      const response = await fetch("/api/admin/payment-link", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          items,
-          total,
-          shippingDetails,
-        }),
-      });
-
-      const result = (await response.json()) as {
-        success: boolean;
-        checkoutUrl?: string;
-        collectRef?: string;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success || !result.checkoutUrl) {
-        setError(result.error || "Failed to create payment link.");
-        return;
-      }
-
-      if (result.collectRef) {
-        savePaymentSession(result.collectRef);
-      }
-
-      setPaymentUrl(result.checkoutUrl);
-      setPaymentUrlMessage("Payment link ready. Share it with the payer.");
-    } finally {
-      setPaymentUrlLoading(false);
-    }
-  };
-
-  const copyPaymentUrl = async () => {
-    if (!paymentUrl) return;
-
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(paymentUrl);
-        setPaymentUrlMessage("Payment link copied.");
-        return;
-      }
-
-      setPaymentUrlMessage("Copy is not supported on this device.");
-    } catch {
-      setPaymentUrlMessage("Could not copy payment link.");
-    }
-  };
-
-  const sharePaymentUrl = async () => {
-    if (!paymentUrl) return;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "MADHU GARMENTS payment",
-          text: `Complete payment for your MADHU GARMENTS order (${formatCartMoney(total)}).`,
-          url: paymentUrl,
-        });
-        return;
-      }
-
-      await copyPaymentUrl();
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") return;
-      setPaymentUrlMessage("Could not share payment link.");
-    }
-  };
+  if (shareError) {
+    return (
+      <section className="checkout-empty container">
+        <h1>Could not open shared link</h1>
+        <p>{shareError}</p>
+        <Link href="/shop">Shop Products</Link>
+      </section>
+    );
+  }
 
   if (!items.length) {
     return (
@@ -351,7 +372,9 @@ export function CheckoutClient() {
       <section className="checkout-empty container">
         <h1>Login required</h1>
         <p>Please log in before placing your order.</p>
-        <Link href="/login">Login</Link>
+        <Link href={`/login?next=${encodeURIComponent(`${typeof window !== "undefined" ? window.location.pathname + window.location.search : "/checkout"}`)}`}>
+          Login
+        </Link>
       </section>
     );
   }
@@ -539,40 +562,9 @@ export function CheckoutClient() {
           <strong>Secure online payment</strong>
           <p>Pay safely with UPI, cards, net banking, and wallets via Easebuzz.</p>
         </div>
-        <button className="place-order-button" disabled={placing || (isAdmin && paymentUrlLoading)} type="submit">
+        <button className="place-order-button" disabled={placing} type="submit">
           {placing ? "Redirecting to payment..." : "Pay & Place Order"}
         </button>
-        {isAdmin ? (
-          <div className="checkout-payment-link">
-            <button
-              className="checkout-payment-link-button"
-              disabled={placing || paymentUrlLoading}
-              onClick={handleSharePaymentUrl}
-              type="button"
-            >
-              <Link2 size={16} />
-              {paymentUrlLoading ? "Creating payment link..." : "Get payment link to share"}
-            </button>
-            {paymentUrl ? (
-              <div className="checkout-payment-link-box">
-                <label htmlFor="checkout-payment-url">Payment URL</label>
-                <div className="checkout-payment-link-row">
-                  <input id="checkout-payment-url" readOnly type="url" value={paymentUrl} />
-                  <button onClick={copyPaymentUrl} type="button">
-                    <Copy size={15} />
-                    Copy
-                  </button>
-                  <button onClick={sharePaymentUrl} type="button">
-                    <Share2 size={15} />
-                    Share
-                  </button>
-                </div>
-                <p>Send this link to complete payment securely on Easebuzz.</p>
-              </div>
-            ) : null}
-            {paymentUrlMessage ? <p className="checkout-payment-link-message">{paymentUrlMessage}</p> : null}
-          </div>
-        ) : null}
       </aside>
     </form>
   );

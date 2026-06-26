@@ -184,6 +184,12 @@ export function EmailOtpAuthForm({ mode }: EmailOtpAuthFormProps) {
           ? "Account created successfully with your email and mobile number. You are now logged in."
           : "OTP verified successfully. You are now logged in with your email and mobile number.",
       );
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      if (next && next.startsWith("/") && !next.startsWith("//")) {
+        router.replace(next);
+        return;
+      }
       router.replace("/");
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Something went wrong while verifying OTP. Please try again.");

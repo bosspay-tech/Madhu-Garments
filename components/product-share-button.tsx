@@ -2,6 +2,7 @@
 
 import { useState, type MouseEvent } from "react";
 import { Share2 } from "lucide-react";
+import { buildProductShareCheckoutUrl } from "@/lib/share-checkout";
 
 type ProductShareButtonProps = {
   productId: string;
@@ -11,11 +12,10 @@ type ProductShareButtonProps = {
 };
 
 function getProductShareUrl(productId: string) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
   if (typeof window !== "undefined") {
-    return `${window.location.origin}/product/${productId}`;
+    return buildProductShareCheckoutUrl(productId, window.location.origin);
   }
-  return siteUrl ? `${siteUrl}/product/${productId}` : `/product/${productId}`;
+  return buildProductShareCheckoutUrl(productId);
 }
 
 export function ProductShareButton({

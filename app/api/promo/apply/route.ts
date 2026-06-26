@@ -11,17 +11,23 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => ({}))) as {
       code?: string;
       subtotal?: number;
+      autoApply?: boolean;
+      shareCheckout?: boolean;
     };
 
-    const code = normalizeCode(body.code);
     const subtotal = Number(body.subtotal || 0);
+    const configuredCode = normalizeCode(process.env.PROMO_CODE || "");
+    const discountRupees = Number(process.env.PROMO_DISCOUNT_RUPEES || 0);
+
+    let code = normalizeCode(body.code);
+
+    if (body.autoApply && body.shareCheckout) {
+      code = configuredCode;
+    }
 
     if (!code) {
       return NextResponse.json({ success: false, error: "Promo code is required." }, { status: 400 });
     }
-
-    const configuredCode = normalizeCode(process.env.PROMO_CODE || "");
-    const discountRupees = Number(process.env.PROMO_DISCOUNT_RUPEES || 0);
 
     if (!configuredCode || discountRupees <= 0) {
       return NextResponse.json({ success: false, error: "Promo codes are not configured." }, { status: 503 });
@@ -45,7 +51,7 @@ export async function POST(request: Request) {
 
     discount = Math.max(0, Math.min(discount, afterOffer));
 
-    return NextResponse.json({ success: true, discount }, { status: 200 });
+    return NextResponse.json({ success: true, discount, code: configuredCode }, { status: 200 });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Internal server error" },
