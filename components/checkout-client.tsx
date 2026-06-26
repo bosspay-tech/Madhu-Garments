@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Copy, Link2, Minus, Plus, Share2, Trash2 } from "lucide-react";
 import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
 import { getSupabase } from "@/lib/supabase";
@@ -49,6 +49,10 @@ export function CheckoutClient() {
   const [promoApplied, setPromoApplied] = useState<null | { code: string; discount: number }>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState("");
+  const [paymentUrlLoading, setPaymentUrlLoading] = useState(false);
+  const [paymentUrlMessage, setPaymentUrlMessage] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const promoDiscount = promoApplied?.discount ?? 0;
   const totalBeforeShipping = Math.max(0, subtotal - promoDiscount);
@@ -76,6 +80,45 @@ export function CheckoutClient() {
       phone: current.phone || phone,
     }));
   }, [user]);
+
+  useEffect(() => {
+    if (authLoading || !user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    let alive = true;
+
+    const checkAdmin = async () => {
+      try {
+        const {
+          data: { session },
+        } = await getSupabase().auth.getSession();
+
+        if (!session?.access_token) {
+          if (alive) setIsAdmin(false);
+          return;
+        }
+
+        const response = await fetch("/api/admin/check", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const result = (await response.json()) as { isAdmin?: boolean };
+
+        if (alive) {
+          setIsAdmin(Boolean(result.isAdmin));
+        }
+      } catch {
+        if (alive) setIsAdmin(false);
+      }
+    };
+
+    checkAdmin();
+
+    return () => {
+      alive = false;
+    };
+  }, [authLoading, user]);
 
   useEffect(() => {
     const pincode = shippingDetails.pincode.replace(/\D/g, "");
@@ -131,63 +174,165 @@ export function CheckoutClient() {
     updateShippingDetail("pincode", value.replace(/\D/g, "").slice(0, 6));
   };
 
-  const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
+  useEffect(() => {
+    setPaymentUrl("");
+    setPaymentUrlMessage("");
+  }, [items, promoApplied, total]);
 
+  const startCheckoutPayment = async () => {
     if (!configured) {
       setError("Supabase is not configured. Please add Supabase environment variables before placing orders.");
-      return;
+      return null;
     }
 
     if (!user) {
       router.replace("/login");
-      return;
+      return null;
     }
+
+    const customerName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
+    const collectRef = `ORD${Date.now()}`;
+
+    const { error: insertError } = await getSupabase().from("orders").insert({
+      store_id: PRODUCT_STORE_ID,
+      user_id: user.id,
+      items,
+      total,
+      transaction_id: collectRef,
+      status: "pending",
+      customer_name: customerName,
+      customer_email: shippingDetails.email,
+      customer_phone: shippingDetails.phone,
+      customer_address: shippingDetails.street,
+      customer_city: shippingDetails.city,
+      customer_state: shippingDetails.state,
+      customer_pincode: shippingDetails.pincode,
+    });
+
+    if (insertError) {
+      setError(insertError.message || "Failed to place order.");
+      return null;
+    }
+
+    const payment = await createEasebuzzPaymentSession({
+      collectRef,
+      amount: total,
+      email: shippingDetails.email,
+      phone: shippingDetails.phone,
+    });
+
+    if (!payment.success || !payment.checkoutUrl) {
+      await getSupabase().from("orders").update({ status: "failed" }).eq("transaction_id", collectRef);
+      setError(payment.error || "Failed to start payment. Please try again.");
+      return null;
+    }
+
+    savePaymentSession(collectRef);
+    return payment.checkoutUrl as string;
+  };
+
+  const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setPaymentUrlMessage("");
 
     setPlacing(true);
     try {
-      const customerName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
-      const collectRef = `ORD${Date.now()}`;
+      const checkoutUrl = await startCheckoutPayment();
+      if (!checkoutUrl) return;
 
-      const { error: insertError } = await getSupabase().from("orders").insert({
-        store_id: PRODUCT_STORE_ID,
-        user_id: user.id,
-        items,
-        total,
-        transaction_id: collectRef,
-        status: "pending",
-        customer_name: customerName,
-        customer_email: shippingDetails.email,
-        customer_phone: shippingDetails.phone,
-        customer_address: shippingDetails.street,
-        customer_city: shippingDetails.city,
-        customer_state: shippingDetails.state,
-        customer_pincode: shippingDetails.pincode,
-      });
-
-      if (insertError) {
-        setError(insertError.message || "Failed to place order.");
-        return;
-      }
-
-      const payment = await createEasebuzzPaymentSession({
-        collectRef,
-        amount: total,
-        email: shippingDetails.email,
-        phone: shippingDetails.phone,
-      });
-
-      if (!payment.success || !payment.checkoutUrl) {
-        await getSupabase().from("orders").update({ status: "failed" }).eq("transaction_id", collectRef);
-        setError(payment.error || "Failed to start payment. Please try again.");
-        return;
-      }
-
-      savePaymentSession(collectRef);
-      window.location.href = payment.checkoutUrl;
+      window.location.href = checkoutUrl;
     } finally {
       setPlacing(false);
+    }
+  };
+
+  const handleSharePaymentUrl = async () => {
+    if (!isAdmin) return;
+
+    setError("");
+    setPaymentUrlMessage("");
+    setPaymentUrlLoading(true);
+
+    try {
+      const {
+        data: { session },
+      } = await getSupabase().auth.getSession();
+
+      if (!session?.access_token) {
+        router.replace("/login");
+        return;
+      }
+
+      const response = await fetch("/api/admin/payment-link", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          items,
+          total,
+          shippingDetails,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        success: boolean;
+        checkoutUrl?: string;
+        collectRef?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success || !result.checkoutUrl) {
+        setError(result.error || "Failed to create payment link.");
+        return;
+      }
+
+      if (result.collectRef) {
+        savePaymentSession(result.collectRef);
+      }
+
+      setPaymentUrl(result.checkoutUrl);
+      setPaymentUrlMessage("Payment link ready. Share it with the payer.");
+    } finally {
+      setPaymentUrlLoading(false);
+    }
+  };
+
+  const copyPaymentUrl = async () => {
+    if (!paymentUrl) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(paymentUrl);
+        setPaymentUrlMessage("Payment link copied.");
+        return;
+      }
+
+      setPaymentUrlMessage("Copy is not supported on this device.");
+    } catch {
+      setPaymentUrlMessage("Could not copy payment link.");
+    }
+  };
+
+  const sharePaymentUrl = async () => {
+    if (!paymentUrl) return;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "MADHU GARMENTS payment",
+          text: `Complete payment for your MADHU GARMENTS order (${formatCartMoney(total)}).`,
+          url: paymentUrl,
+        });
+        return;
+      }
+
+      await copyPaymentUrl();
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      setPaymentUrlMessage("Could not share payment link.");
     }
   };
 
@@ -394,9 +539,40 @@ export function CheckoutClient() {
           <strong>Secure online payment</strong>
           <p>Pay safely with UPI, cards, net banking, and wallets via Easebuzz.</p>
         </div>
-        <button className="place-order-button" disabled={placing} type="submit">
+        <button className="place-order-button" disabled={placing || (isAdmin && paymentUrlLoading)} type="submit">
           {placing ? "Redirecting to payment..." : "Pay & Place Order"}
         </button>
+        {isAdmin ? (
+          <div className="checkout-payment-link">
+            <button
+              className="checkout-payment-link-button"
+              disabled={placing || paymentUrlLoading}
+              onClick={handleSharePaymentUrl}
+              type="button"
+            >
+              <Link2 size={16} />
+              {paymentUrlLoading ? "Creating payment link..." : "Get payment link to share"}
+            </button>
+            {paymentUrl ? (
+              <div className="checkout-payment-link-box">
+                <label htmlFor="checkout-payment-url">Payment URL</label>
+                <div className="checkout-payment-link-row">
+                  <input id="checkout-payment-url" readOnly type="url" value={paymentUrl} />
+                  <button onClick={copyPaymentUrl} type="button">
+                    <Copy size={15} />
+                    Copy
+                  </button>
+                  <button onClick={sharePaymentUrl} type="button">
+                    <Share2 size={15} />
+                    Share
+                  </button>
+                </div>
+                <p>Send this link to complete payment securely on Easebuzz.</p>
+              </div>
+            ) : null}
+            {paymentUrlMessage ? <p className="checkout-payment-link-message">{paymentUrlMessage}</p> : null}
+          </div>
+        ) : null}
       </aside>
     </form>
   );
