@@ -57,9 +57,7 @@ export function CheckoutClient() {
   const [promoApplied, setPromoApplied] = useState<null | { code: string; discount: number }>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
-  const [promoOffer, setPromoOffer] = useState<null | { code: string; discountRupees: number; maxSubtotal: number }>(
-    null,
-  );
+  const [promoOffer, setPromoOffer] = useState<null | { code: string; discountRupees: number }>(null);
 
   const promoDiscount = promoApplied?.discount ?? 0;
   const totalBeforeShipping = Math.max(0, subtotal - promoDiscount);
@@ -119,7 +117,6 @@ export function CheckoutClient() {
           available?: boolean;
           code?: string;
           discountRupees?: number;
-          maxSubtotal?: number;
         };
 
         if (cancelled || !json.available || !json.code || !json.discountRupees) return;
@@ -127,7 +124,6 @@ export function CheckoutClient() {
         setPromoOffer({
           code: json.code,
           discountRupees: json.discountRupees,
-          maxSubtotal: json.maxSubtotal ?? 1599,
         });
         setPromoCode((current) => current || json.code || "");
       } catch {
@@ -569,7 +565,7 @@ export function CheckoutClient() {
             <div className="checkout-promo-offer">
               <span className="checkout-promo-offer-code">{promoOffer.code}</span>
               <span className="checkout-promo-offer-save">
-                Get {formatCartMoney(promoOffer.discountRupees)} off orders up to {formatCartMoney(promoOffer.maxSubtotal)}
+                Get {formatCartMoney(promoOffer.discountRupees)} off with this promo code.
               </span>
             </div>
           ) : (
