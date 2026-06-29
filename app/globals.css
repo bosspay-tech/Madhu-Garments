@@ -2487,6 +2487,43 @@ img {
   font-size: 14px;
 }
 
+.checkout-promo-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px dashed var(--pink);
+  border-radius: 10px;
+  background: var(--pink-soft);
+}
+
+.checkout-promo-offer-code {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--pink);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.checkout-promo-offer-save {
+  color: #444444;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.checkout-promo-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .checkout-promo-row {
   display: grid;
   grid-template-columns: 1fr 120px;

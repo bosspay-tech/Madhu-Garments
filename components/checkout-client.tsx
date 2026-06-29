@@ -57,10 +57,90 @@ export function CheckoutClient() {
   const [promoApplied, setPromoApplied] = useState<null | { code: string; discount: number }>(null);
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
+  const [promoOffer, setPromoOffer] = useState<null | { code: string; discountRupees: number; maxSubtotal: number }>(
+    null,
+  );
 
   const promoDiscount = promoApplied?.discount ?? 0;
   const totalBeforeShipping = Math.max(0, subtotal - promoDiscount);
   const total = totalBeforeShipping + shipping;
+
+  const applyPromoCode = async (code: string) => {
+    const trimmedCode = code.trim();
+    if (!trimmedCode) {
+      setPromoError("Enter a promo code to apply.");
+      return;
+    }
+
+    setPromoError("");
+    setPromoLoading(true);
+
+    try {
+      const response = await fetch("/api/promo/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: trimmedCode,
+          subtotal,
+        }),
+      });
+      const json = (await response.json()) as {
+        success: boolean;
+        discount?: number;
+        code?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !json.success || !json.discount) {
+        setPromoApplied(null);
+        setPromoError(json.error || "Invalid promo code.");
+        return;
+      }
+
+      const appliedCode = json.code || trimmedCode.toUpperCase();
+      setPromoCode(appliedCode);
+      setPromoApplied({ code: appliedCode, discount: json.discount });
+      setPromoError("");
+    } catch (err) {
+      setPromoApplied(null);
+      setPromoError(err instanceof Error ? err.message : "Failed to apply promo code.");
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPromoOffer = async () => {
+      try {
+        const response = await fetch("/api/promo/info");
+        const json = (await response.json()) as {
+          available?: boolean;
+          code?: string;
+          discountRupees?: number;
+          maxSubtotal?: number;
+        };
+
+        if (cancelled || !json.available || !json.code || !json.discountRupees) return;
+
+        setPromoOffer({
+          code: json.code,
+          discountRupees: json.discountRupees,
+          maxSubtotal: json.maxSubtotal ?? 1599,
+        });
+        setPromoCode((current) => current || json.code || "");
+      } catch {
+        // Promo display is optional; checkout still works without it.
+      }
+    };
+
+    void loadPromoOffer();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!configured || authLoading || user || shareLoading) return;
@@ -135,7 +215,6 @@ export function CheckoutClient() {
     if (isShareCheckout) return;
     sharePromoAppliedRef.current = false;
     setPromoApplied(null);
-    setPromoCode("");
     setPromoError("");
   }, [isShareCheckout]);
 
@@ -486,43 +565,28 @@ export function CheckoutClient() {
         </div>
         <div className="checkout-promo">
           <strong>Promo code</strong>
+          {promoOffer ? (
+            <div className="checkout-promo-offer">
+              <span className="checkout-promo-offer-code">{promoOffer.code}</span>
+              <span className="checkout-promo-offer-save">
+                Get {formatCartMoney(promoOffer.discountRupees)} off orders up to {formatCartMoney(promoOffer.maxSubtotal)}
+              </span>
+            </div>
+          ) : (
+            <p className="checkout-promo-hint">Enter your promo code below to get a discount.</p>
+          )}
           <div className="checkout-promo-row">
             <input
+              aria-label="Promo code"
               placeholder="Enter promo code"
               value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
+              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
               type="text"
             />
             <button
               type="button"
-              disabled={promoLoading || !promoCode.trim()}
-              onClick={async () => {
-                setPromoError("");
-                setPromoLoading(true);
-                try {
-                  const response = await fetch("/api/promo/apply", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      code: promoCode.trim(),
-                      subtotal,
-                    }),
-                  });
-                  const json = (await response.json()) as { success: boolean; discount?: number; error?: string };
-                  if (!response.ok || !json.success || !json.discount) {
-                    setPromoApplied(null);
-                    setPromoError(json.error || "Invalid promo code.");
-                  } else {
-                    setPromoApplied({ code: promoCode.trim().toUpperCase(), discount: json.discount });
-                    setPromoError("");
-                  }
-                } catch (err) {
-                  setPromoApplied(null);
-                  setPromoError(err instanceof Error ? err.message : "Failed to apply promo code.");
-                } finally {
-                  setPromoLoading(false);
-                }
-              }}
+              disabled={promoLoading || !promoCode.trim() || Boolean(promoApplied)}
+              onClick={() => void applyPromoCode(promoCode)}
             >
               {promoLoading ? "Applying..." : "Apply"}
             </button>
