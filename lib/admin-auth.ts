@@ -33,3 +33,21 @@ export function isAdminEmail(email: string) {
   if (!adminEmails.size) return false;
   return adminEmails.has(email.trim().toLowerCase());
 }
+
+export async function requireAdminFromRequest(request: Request) {
+  const accessToken = getAccessTokenFromRequest(request);
+  if (!accessToken) {
+    return { ok: false as const, status: 401, error: "Authentication required." };
+  }
+
+  const user = await getUserFromAccessToken(accessToken);
+  if (!user) {
+    return { ok: false as const, status: 401, error: "Invalid session." };
+  }
+
+  if (!isAdminEmail(user.email ?? "")) {
+    return { ok: false as const, status: 403, error: "Forbidden." };
+  }
+
+  return { ok: true as const, user, accessToken };
+}

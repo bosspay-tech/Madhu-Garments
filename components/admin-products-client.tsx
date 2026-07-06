@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { AdminProductEditModal } from "@/components/admin-product-edit-modal";
 import { getProductUnitPrice, type Product } from "@/lib/products";
 
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
 
 type AdminProductsClientProps = {
   products: Product[];
+  accessToken: string;
+  onProductUpdated: (product: Product) => void;
 };
 
 function formatMoney(value: number | null) {
@@ -31,28 +34,56 @@ function shortText(value: string, max = 80) {
   return trimmed.length > max ? `${trimmed.slice(0, max)}...` : trimmed;
 }
 
-export function AdminProductsClient({ products }: AdminProductsClientProps) {
+function parsePriceInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const number = Number(trimmed);
+  return Number.isFinite(number) ? number : null;
+}
+
+export function AdminProductsClient({ products, accessToken, onProductUpdated }: AdminProductsClientProps) {
   const [sort, setSort] = useState<SortOption>("name-asc");
   const [query, setQuery] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const sortedProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const filtered = normalizedQuery
-      ? products.filter((product) => {
-          const searchable = [
-            product.name,
-            product.sku,
-            product.brand,
-            product.color,
-            product.categories,
-            product.tags,
-          ]
-            .join(" ")
-            .toLowerCase();
+    const min = parsePriceInput(minPrice);
+    const max = parsePriceInput(maxPrice);
 
-          return searchable.includes(normalizedQuery);
-        })
-      : products;
+    const filtered = products.filter((product) => {
+      const unitPrice = getProductUnitPrice(product);
+
+      if (min != null && unitPrice < min) {
+        return false;
+      }
+
+      if (max != null && unitPrice > max) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const searchable = [
+        product.name,
+        product.sku,
+        product.brand,
+        product.color,
+        product.categories,
+        product.tags,
+        String(unitPrice),
+        product.regularPrice != null ? String(product.regularPrice) : "",
+        product.salePrice != null ? String(product.salePrice) : "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(normalizedQuery);
+    });
 
     const next = [...filtered];
 
@@ -73,7 +104,7 @@ export function AdminProductsClient({ products }: AdminProductsClientProps) {
     });
 
     return next;
-  }, [products, query, sort]);
+  }, [maxPrice, minPrice, products, query, sort]);
 
   const sortLabel =
     sort === "price-asc"
@@ -84,6 +115,8 @@ export function AdminProductsClient({ products }: AdminProductsClientProps) {
           ? "Name: Z to A"
           : "Name: A to Z";
 
+  const hasPriceFilter = Boolean(minPrice.trim() || maxPrice.trim());
+
   return (
     <section className="admin-products container">
       <div className="admin-products-toolbar">
@@ -91,6 +124,13 @@ export function AdminProductsClient({ products }: AdminProductsClientProps) {
           <strong>{sortedProducts.length}</strong>
           <span>{sortedProducts.length === 1 ? "product" : "products"}</span>
           {query.trim() ? <span className="admin-products-filter-note">matching &ldquo;{query.trim()}&rdquo;</span> : null}
+          {hasPriceFilter ? (
+            <span className="admin-products-filter-note">
+              price {minPrice.trim() ? `from ₹${minPrice.trim()}` : ""}
+              {minPrice.trim() && maxPrice.trim() ? " " : ""}
+              {maxPrice.trim() ? `to ₹${maxPrice.trim()}` : ""}
+            </span>
+          ) : null}
         </div>
 
         <div className="admin-products-controls">
@@ -98,9 +138,33 @@ export function AdminProductsClient({ products }: AdminProductsClientProps) {
             <span className="sr-only">Search products</span>
             <input
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, SKU, brand, color..."
+              placeholder="Search name, SKU, brand, price..."
               type="search"
               value={query}
+            />
+          </label>
+
+          <label className="admin-products-price-filter">
+            <span>Min price</span>
+            <input
+              inputMode="decimal"
+              min="0"
+              onChange={(event) => setMinPrice(event.target.value)}
+              placeholder="₹ Min"
+              type="number"
+              value={minPrice}
+            />
+          </label>
+
+          <label className="admin-products-price-filter">
+            <span>Max price</span>
+            <input
+              inputMode="decimal"
+              min="0"
+              onChange={(event) => setMaxPrice(event.target.value)}
+              placeholder="₹ Max"
+              type="number"
+              value={maxPrice}
             />
           </label>
 
@@ -136,6 +200,7 @@ export function AdminProductsClient({ products }: AdminProductsClientProps) {
               <th scope="col">Stock</th>
               <th scope="col">Discount</th>
               <th scope="col">Tags</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -167,11 +232,16 @@ export function AdminProductsClient({ products }: AdminProductsClientProps) {
                   <td>{product.stock ?? "—"}</td>
                   <td>{product.discount ? `-${product.discount}%` : "—"}</td>
                   <td>{shortText(product.tags, 70)}</td>
+                  <td>
+                    <button className="admin-products-edit-button" onClick={() => setEditingProduct(product)} type="button">
+                      Edit
+                    </button>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td className="admin-products-empty" colSpan={12}>
+                <td className="admin-products-empty" colSpan={13}>
                   No products found.
                 </td>
               </tr>
@@ -179,6 +249,13 @@ export function AdminProductsClient({ products }: AdminProductsClientProps) {
           </tbody>
         </table>
       </div>
+
+      <AdminProductEditModal
+        accessToken={accessToken}
+        onClose={() => setEditingProduct(null)}
+        onSaved={onProductUpdated}
+        product={editingProduct}
+      />
     </section>
   );
 }

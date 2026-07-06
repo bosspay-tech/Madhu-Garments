@@ -37,6 +37,10 @@ type ProductRow = Record<string, unknown>;
 
 let cache: Product[] | null = null;
 
+export function clearProductsCache() {
+  cache = null;
+}
+
 export async function getProducts(): Promise<Product[]> {
   if (cache) {
     return cache;

@@ -13,6 +13,7 @@ export function AdminProductsAdminOnly() {
 
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
+  const [accessToken, setAccessToken] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export function AdminProductsAdminOnly() {
 
         if (alive) {
           setProducts(json.products ?? []);
+          setAccessToken(session.access_token);
           setLoading(false);
         }
       } catch (e) {
@@ -108,6 +110,14 @@ export function AdminProductsAdminOnly() {
     );
   }
 
-  return <AdminProductsClient products={products} />;
+  return (
+    <AdminProductsClient
+      accessToken={accessToken}
+      onProductUpdated={(product) => {
+        setProducts((current) => current.map((item) => (item.id === product.id ? product : item)));
+      }}
+      products={products}
+    />
+  );
 }
 
