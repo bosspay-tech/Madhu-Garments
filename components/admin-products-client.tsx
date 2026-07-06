@@ -34,38 +34,46 @@ function shortText(value: string, max = 80) {
   return trimmed.length > max ? `${trimmed.slice(0, max)}...` : trimmed;
 }
 
-function parsePriceInput(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
+function parsePriceQuery(value: string) {
+  const trimmed = value.trim().replace(/,/g, "").replace(/^₹\s*/, "");
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+    return null;
+  }
+
   const number = Number(trimmed);
   return Number.isFinite(number) ? number : null;
+}
+
+function normalizePrice(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function productMatchesExactPrice(product: Product, targetPrice: number) {
+  const normalizedTarget = normalizePrice(targetPrice);
+  const prices = [getProductUnitPrice(product), product.regularPrice, product.salePrice]
+    .filter((price): price is number => price != null)
+    .map(normalizePrice);
+
+  return prices.includes(normalizedTarget);
 }
 
 export function AdminProductsClient({ products, accessToken, onProductUpdated }: AdminProductsClientProps) {
   const [sort, setSort] = useState<SortOption>("name-asc");
   const [query, setQuery] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const sortedProducts = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const min = parsePriceInput(minPrice);
-    const max = parsePriceInput(maxPrice);
+    const trimmedQuery = query.trim();
+    const priceQuery = parsePriceQuery(trimmedQuery);
+    const normalizedQuery = trimmedQuery.toLowerCase();
 
     const filtered = products.filter((product) => {
-      const unitPrice = getProductUnitPrice(product);
-
-      if (min != null && unitPrice < min) {
-        return false;
-      }
-
-      if (max != null && unitPrice > max) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
+      if (!trimmedQuery) {
         return true;
+      }
+
+      if (priceQuery != null) {
+        return productMatchesExactPrice(product, priceQuery);
       }
 
       const searchable = [
@@ -75,9 +83,6 @@ export function AdminProductsClient({ products, accessToken, onProductUpdated }:
         product.color,
         product.categories,
         product.tags,
-        String(unitPrice),
-        product.regularPrice != null ? String(product.regularPrice) : "",
-        product.salePrice != null ? String(product.salePrice) : "",
       ]
         .join(" ")
         .toLowerCase();
@@ -104,7 +109,7 @@ export function AdminProductsClient({ products, accessToken, onProductUpdated }:
     });
 
     return next;
-  }, [maxPrice, minPrice, products, query, sort]);
+  }, [products, query, sort]);
 
   const sortLabel =
     sort === "price-asc"
@@ -115,8 +120,6 @@ export function AdminProductsClient({ products, accessToken, onProductUpdated }:
           ? "Name: Z to A"
           : "Name: A to Z";
 
-  const hasPriceFilter = Boolean(minPrice.trim() || maxPrice.trim());
-
   return (
     <section className="admin-products container">
       <div className="admin-products-toolbar">
@@ -124,13 +127,6 @@ export function AdminProductsClient({ products, accessToken, onProductUpdated }:
           <strong>{sortedProducts.length}</strong>
           <span>{sortedProducts.length === 1 ? "product" : "products"}</span>
           {query.trim() ? <span className="admin-products-filter-note">matching &ldquo;{query.trim()}&rdquo;</span> : null}
-          {hasPriceFilter ? (
-            <span className="admin-products-filter-note">
-              price {minPrice.trim() ? `from ₹${minPrice.trim()}` : ""}
-              {minPrice.trim() && maxPrice.trim() ? " " : ""}
-              {maxPrice.trim() ? `to ₹${maxPrice.trim()}` : ""}
-            </span>
-          ) : null}
         </div>
 
         <div className="admin-products-controls">
@@ -138,33 +134,9 @@ export function AdminProductsClient({ products, accessToken, onProductUpdated }:
             <span className="sr-only">Search products</span>
             <input
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, SKU, brand, price..."
+              placeholder="Search name, SKU, brand, or exact price (e.g. 999)"
               type="search"
               value={query}
-            />
-          </label>
-
-          <label className="admin-products-price-filter">
-            <span>Min price</span>
-            <input
-              inputMode="decimal"
-              min="0"
-              onChange={(event) => setMinPrice(event.target.value)}
-              placeholder="₹ Min"
-              type="number"
-              value={minPrice}
-            />
-          </label>
-
-          <label className="admin-products-price-filter">
-            <span>Max price</span>
-            <input
-              inputMode="decimal"
-              min="0"
-              onChange={(event) => setMaxPrice(event.target.value)}
-              placeholder="₹ Max"
-              type="number"
-              value={maxPrice}
             />
           </label>
 

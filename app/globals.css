@@ -3578,8 +3578,7 @@ img {
 }
 
 .admin-products-search input,
-.admin-products-sort select,
-.admin-products-price-filter input {
+.admin-products-sort select {
   min-height: 42px;
   padding: 0 14px;
   border: 1px solid var(--line);
@@ -3602,18 +3601,6 @@ img {
 
 .admin-products-sort select {
   min-width: 190px;
-}
-
-.admin-products-price-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.admin-products-price-filter input {
-  min-width: 120px;
 }
 
 .admin-products-edit-button {
@@ -3870,8 +3857,7 @@ img {
   }
 
   .admin-products-search input,
-  .admin-products-sort select,
-  .admin-products-price-filter input {
+  .admin-products-sort select {
     width: 100%;
   }
 
