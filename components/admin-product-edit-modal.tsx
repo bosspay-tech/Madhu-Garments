@@ -42,6 +42,13 @@ function toFormState(product: Product): EditFormState {
   };
 }
 
+function parseOptionalNumber(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const number = Number(trimmed);
+  return Number.isFinite(number) ? number : null;
+}
+
 export function AdminProductEditModal({ product, accessToken, onClose, onSaved }: AdminProductEditModalProps) {
   const [form, setForm] = useState<EditFormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -71,6 +78,34 @@ export function AdminProductEditModal({ product, accessToken, onClose, onSaved }
     setSaving(true);
     setError("");
 
+    const regularPrice = parseOptionalNumber(form.regularPrice);
+    const salePrice = parseOptionalNumber(form.salePrice);
+    const stock = parseOptionalNumber(form.stock);
+
+    if (form.regularPrice.trim() && regularPrice == null) {
+      setError("Enter a valid regular price.");
+      setSaving(false);
+      return;
+    }
+
+    if (form.salePrice.trim() && salePrice == null) {
+      setError("Enter a valid sale price.");
+      setSaving(false);
+      return;
+    }
+
+    if (form.stock.trim() && stock == null) {
+      setError("Enter a valid stock value.");
+      setSaving(false);
+      return;
+    }
+
+    if (regularPrice != null && salePrice != null && salePrice >= regularPrice) {
+      setError("Sale price must be lower than regular price.");
+      setSaving(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/admin/products/${product.id}`, {
         method: "PATCH",
@@ -84,9 +119,9 @@ export function AdminProductEditModal({ product, accessToken, onClose, onSaved }
           brand: form.brand,
           color: form.color,
           categories: form.categories,
-          regularPrice: form.regularPrice === "" ? null : Number(form.regularPrice),
-          salePrice: form.salePrice === "" ? null : Number(form.salePrice),
-          stock: form.stock === "" ? null : Number(form.stock),
+          regularPrice,
+          salePrice,
+          stock,
           image: form.image,
           tags: form.tags,
           shortDescription: form.shortDescription,
