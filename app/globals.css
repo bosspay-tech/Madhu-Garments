@@ -2777,6 +2777,32 @@ img {
   color: #9d2f28;
 }
 
+.checkout-section-title {
+  margin: 28px 0 14px;
+  font-size: 24px;
+}
+
+.checkout-billing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  color: #444444;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.checkout-billing-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.checkout-fields-billing,
+.checkout-fields-notes {
+  margin-top: 0;
+}
+
 .order-panel {
   align-self: start;
   padding: 28px;

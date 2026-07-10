@@ -14,17 +14,33 @@ import { PRODUCT_STORE_ID } from "@/lib/store";
 
 const shipping = 0;
 
-type ShippingDetails = {
+type AddressDetails = {
   firstName: string;
   lastName: string;
   street: string;
   city: string;
   state: string;
   pincode: string;
+};
+
+type ShippingDetails = AddressDetails & {
   phone: string;
   email: string;
   notes: string;
 };
+
+const emptyAddress = (): AddressDetails => ({
+  firstName: "",
+  lastName: "",
+  street: "",
+  city: "",
+  state: "",
+  pincode: "",
+});
+
+function resolveBillingAddress(delivery: AddressDetails, billing: AddressDetails, sameAsDelivery: boolean) {
+  return sameAsDelivery ? delivery : billing;
+}
 
 export function CheckoutClient() {
   const router = useRouter();
@@ -42,16 +58,13 @@ export function CheckoutClient() {
   const shareFetchRef = useRef<string | null>(null);
   const sharePromoAppliedRef = useRef(false);
   const [shippingDetails, setShippingDetails] = useState<ShippingDetails>({
-    firstName: "",
-    lastName: "",
-    street: "",
-    city: "",
-    state: "",
-    pincode: "",
+    ...emptyAddress(),
     phone: "",
     email: "",
     notes: "",
   });
+  const [billingSameAsDelivery, setBillingSameAsDelivery] = useState(true);
+  const [billingDetails, setBillingDetails] = useState<AddressDetails>(emptyAddress());
 
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState<null | { code: string; discount: number }>(null);
@@ -338,6 +351,14 @@ export function CheckoutClient() {
     setShippingDetails((current) => ({ ...current, [field]: value }));
   };
 
+  const updateBillingDetail = (field: keyof AddressDetails, value: string) => {
+    setBillingDetails((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateBillingPincode = (value: string) => {
+    updateBillingDetail("pincode", value.replace(/\D/g, "").slice(0, 6));
+  };
+
   const updatePincode = (value: string) => {
     updateShippingDetail("pincode", value.replace(/\D/g, "").slice(0, 6));
   };
@@ -360,6 +381,8 @@ export function CheckoutClient() {
     try {
       const customerName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
       const collectRef = `ORD${Date.now()}`;
+      const billingAddress = resolveBillingAddress(shippingDetails, billingDetails, billingSameAsDelivery);
+      const billingName = `${billingAddress.firstName} ${billingAddress.lastName}`.trim();
 
       const { error: insertError } = await getSupabase().from("orders").insert({
         store_id: PRODUCT_STORE_ID,
@@ -375,6 +398,12 @@ export function CheckoutClient() {
         customer_city: shippingDetails.city,
         customer_state: shippingDetails.state,
         customer_pincode: shippingDetails.pincode,
+        billing_same_as_delivery: billingSameAsDelivery,
+        billing_name: billingName,
+        billing_address: billingAddress.street,
+        billing_city: billingAddress.city,
+        billing_state: billingAddress.state,
+        billing_pincode: billingAddress.pincode,
       });
 
       if (insertError) {
@@ -458,7 +487,7 @@ export function CheckoutClient() {
     <form className="checkout-wrap container" onSubmit={placeOrder}>
       <section className="billing-panel">
         <h1>Checkout</h1>
-        <h2>Billing Details</h2>
+        <h2>Delivery Address</h2>
         {error ? <div className="checkout-error">{error}</div> : null}
         <div className="checkout-fields">
           <label>
@@ -513,6 +542,72 @@ export function CheckoutClient() {
               onChange={(event) => updateShippingDetail("email", event.target.value)}
             />
           </label>
+        </div>
+
+        <h2 className="checkout-section-title">Billing Address</h2>
+        <label className="checkout-billing-toggle">
+          <input
+            checked={billingSameAsDelivery}
+            onChange={(event) => setBillingSameAsDelivery(event.target.checked)}
+            type="checkbox"
+          />
+          <span>Same as delivery address</span>
+        </label>
+
+        {!billingSameAsDelivery ? (
+          <div className="checkout-fields checkout-fields-billing">
+            <label>
+              First name
+              <input
+                required
+                value={billingDetails.firstName}
+                onChange={(event) => updateBillingDetail("firstName", event.target.value)}
+              />
+            </label>
+            <label>
+              Last name
+              <input
+                required
+                value={billingDetails.lastName}
+                onChange={(event) => updateBillingDetail("lastName", event.target.value)}
+              />
+            </label>
+            <label className="wide">
+              Street address
+              <input
+                required
+                value={billingDetails.street}
+                onChange={(event) => updateBillingDetail("street", event.target.value)}
+              />
+            </label>
+            <label>
+              PIN code
+              <input
+                inputMode="numeric"
+                maxLength={6}
+                pattern="[0-9]{6}"
+                required
+                value={billingDetails.pincode}
+                onChange={(event) => updateBillingPincode(event.target.value)}
+              />
+            </label>
+            <label>
+              Town / City
+              <input required value={billingDetails.city} onChange={(event) => updateBillingDetail("city", event.target.value)} />
+            </label>
+            <label>
+              State
+              <input
+                placeholder="State"
+                required
+                value={billingDetails.state}
+                onChange={(event) => updateBillingDetail("state", event.target.value)}
+              />
+            </label>
+          </div>
+        ) : null}
+
+        <div className="checkout-fields checkout-fields-notes">
           <label className="wide">
             Order notes
             <textarea rows={5} value={shippingDetails.notes} onChange={(event) => updateShippingDetail("notes", event.target.value)} />
