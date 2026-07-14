@@ -8,6 +8,8 @@ import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { useAuth } from "@/components/use-auth";
 import { signOut } from "@/lib/auth-service";
 
+import { getSupabase } from "@/lib/supabase";
+
 const links = [
   { href: "/", label: "Home" },
   { href: "/shop", label: "Shop" },
@@ -31,6 +33,40 @@ export function SiteHeader() {
   const [searchQuery, setSearchQuery] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin status on user change
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    let alive = true;
+    const checkAdmin = async () => {
+      try {
+        const { data: { session }, error } = await getSupabase().auth.getSession();
+        if (error || !session?.access_token) return;
+
+        const res = await fetch("/api/admin/check", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const json = await res.json();
+        if (alive && json.success) {
+          setIsAdmin(json.isAdmin);
+        }
+      } catch (err) {
+        console.error("Failed to check admin status:", err);
+      }
+    };
+
+    checkAdmin();
+    return () => {
+      alive = false;
+    };
+  }, [user]);
 
   const activePath = useMemo(() => (pathname === "/" ? "/" : `/${pathname.split("/")[1]}`), [pathname]);
 
@@ -114,6 +150,11 @@ export function SiteHeader() {
                 <div className="account-dropdown">
                   {user ? (
                     <>
+                      {isAdmin && (
+                        <Link href="/admin" onClick={() => setAccountOpen(false)} style={{ fontWeight: "bold", color: "#b45309" }}>
+                          Admin Panel
+                        </Link>
+                      )}
                       <Link href="/my-account" onClick={() => setAccountOpen(false)}>
                         Dashboard
                       </Link>
@@ -124,6 +165,7 @@ export function SiteHeader() {
                         Logout
                       </button>
                     </>
+
                   ) : (
                     <>
                       <Link href="/login" onClick={() => setAccountOpen(false)}>

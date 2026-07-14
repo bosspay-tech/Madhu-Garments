@@ -10,6 +10,7 @@ import { getOrderStatusLabel, normalizeOrderStatus, type OrderStatusValue } from
 import { syncOrderPaymentStatus } from "@/lib/orders";
 import { getSupabase } from "@/lib/supabase";
 import { PRODUCT_STORE_ID } from "@/lib/store";
+import { generateInvoicePDF } from "@/lib/invoice-generator";
 
 type OrderItem = {
   id?: string;
@@ -41,6 +42,12 @@ export function OrdersClient() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  const handleDownloadInvoice = (order: Order) => {
+    const doc = generateInvoicePDF(order as any);
+    const invoiceNo = `INVC-${(order.transaction_id || order.id).slice(0, 8).toUpperCase()}`;
+    doc.save(`${invoiceNo}.pdf`);
+  };
 
   useEffect(() => {
     if (authLoading || !configured || !user) {
@@ -256,13 +263,23 @@ export function OrdersClient() {
                       {order.items.length > 3 ? <em>+{order.items.length - 3} more</em> : null}
                     </div>
                   ) : null}
-                  {status === "failed" && order.transaction_id ? (
-                    <div className="order-history-actions">
+                  <div className="order-history-actions" style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
+                    {status === "success" && (
+                      <button
+                        className="order-retry-link"
+                        onClick={() => handleDownloadInvoice(order)}
+                        style={{ background: "#1f2937", color: "white", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center" }}
+                        type="button"
+                      >
+                        Download Invoice
+                      </button>
+                    )}
+                    {status === "failed" && order.transaction_id && (
                       <Link className="order-retry-link" href={`/order-success?collect_ref=${order.transaction_id}&status=failed`}>
                         Retry payment
                       </Link>
-                    </div>
-                  ) : null}
+                    )}
+                  </div>
                 </article>
               );
             })}

@@ -1,17 +1,17 @@
-import { AdminProductsAdminOnly } from "@/components/admin-products-admin-only";
+import { AdminOrdersAdminOnly } from "@/components/admin-orders-admin-only";
 import { PageHero } from "@/components/page-hero";
 import { AdminNav } from "@/components/admin-nav";
 
 export const metadata = {
-  title: "Admin Products | MADHU GARMENTS",
+  title: "Admin Orders | MADHU GARMENTS",
 };
 
-export default function AdminPage() {
+export default function AdminOrdersPage() {
   return (
     <main className="admin-page">
       <PageHero plain title="Admin Panel" />
       <AdminNav />
-      <AdminProductsAdminOnly />
+      <AdminOrdersAdminOnly />
     </main>
   );
 }

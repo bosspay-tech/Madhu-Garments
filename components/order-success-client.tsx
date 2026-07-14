@@ -8,11 +8,15 @@ import { formatCartMoney, useCart } from "@/components/cart-provider";
 import { getSupabase } from "@/lib/supabase";
 import { createEasebuzzPaymentSession, savePaymentSession } from "@/lib/payment";
 import { updateOrderStatus } from "@/lib/orders";
+import { generateInvoicePDF } from "@/lib/invoice-generator";
 
 const ORDER_SELECT =
-  "status, total, customer_name, customer_email, customer_phone, customer_address, customer_city, customer_state, customer_pincode";
+  "id, transaction_id, created_at, status, total, customer_name, customer_email, customer_phone, customer_address, customer_city, customer_state, customer_pincode, billing_same_as_delivery, billing_name, billing_address, billing_city, billing_state, billing_pincode, items";
 
 type OrderRow = {
+  id: string;
+  transaction_id?: string;
+  created_at?: string;
   status?: string;
   total?: number | string;
   customer_name?: string;
@@ -22,6 +26,13 @@ type OrderRow = {
   customer_city?: string;
   customer_state?: string;
   customer_pincode?: string;
+  billing_same_as_delivery?: boolean;
+  billing_name?: string;
+  billing_address?: string;
+  billing_city?: string;
+  billing_state?: string;
+  billing_pincode?: string;
+  items?: any[];
 };
 
 type PaymentStatus = "processing" | "success" | "failed" | "unknown";
@@ -42,6 +53,13 @@ export function OrderSuccessClient() {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [retryLoading, setRetryLoading] = useState(false);
   const [retryError, setRetryError] = useState("");
+
+  const handleDownloadInvoice = () => {
+    if (!order) return;
+    const doc = generateInvoicePDF(order as any);
+    const invoiceNo = `INVC-${(order.transaction_id || txnId || order.id).slice(0, 8).toUpperCase()}`;
+    doc.save(`${invoiceNo}.pdf`);
+  };
 
   useEffect(() => {
     if (handledRef.current) return;
@@ -257,6 +275,16 @@ export function OrderSuccessClient() {
         {retryError ? <div className="payment-status-error">{retryError}</div> : null}
 
         <div className="payment-status-actions">
+          {isSuccess && order && (
+            <button
+              className="payment-status-primary"
+              onClick={handleDownloadInvoice}
+              style={{ background: "#1f2937", color: "white", width: "100%", marginBottom: "12px", border: "none", cursor: "pointer" }}
+              type="button"
+            >
+              Download Invoice PDF
+            </button>
+          )}
           {canRetry ? (
             <button
               className="payment-status-primary"
